@@ -1,0 +1,15 @@
+parrot:
+  pet_id: 1
+  name: parrot
+
+chew:
+  pet_id: 2
+  name: chew
+
+mochi:
+  pet_id: 3
+  name: mochi
+
+bulbul:
+  pet_id: 4
+  name: bulbul

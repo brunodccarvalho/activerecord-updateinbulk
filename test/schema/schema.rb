@@ -1,0 +1,80 @@
+# frozen_string_literal: true
+
+ActiveRecord::Schema.define do
+  unsigned = if ["mysql2", "trilogy"].include?(TestSupport::DatabaseConfig.adapter)
+    { unsigned: true }
+  else
+    {}
+  end
+
+  create_table :users, force: true do |t|
+    t.string :name
+    t.string :settings, null: true, limit: 1024
+    t.json :preferences
+  end
+
+  create_table :authors, force: true do |t|
+    t.string :name, null: false
+  end
+
+  create_table :books, id: :integer, force: true do |t|
+    t.references :author
+    t.string :format
+    t.integer :pages, null: false, **unsigned, default: 0
+    t.column :name, :string
+    t.column :status, :integer, default: 0
+    t.column :last_read, :integer, default: 0
+    t.column :language, :integer, default: 0
+    t.column :author_visibility, :integer, default: 0
+    t.column :font_size, :integer, default: 0
+    t.column :difficulty, :integer, default: 0
+    t.column :cover, :string, default: "hard"
+    t.datetime :published_on
+    t.boolean :boolean_status
+    t.index [:author_id, :name], unique: true
+
+    t.datetime :created_at
+    t.datetime :updated_at
+    t.date :updated_on
+  end
+
+  create_table :categories, force: true do |t|
+    t.string :name, null: false
+    t.string :type, null: false # sti column
+  end
+
+  create_table :vehicles, force: true, primary_key: [:make, :model] do |t|
+    t.string :make, null: false
+    t.string :model, null: false
+    t.integer :year, default: 0
+  end
+
+  create_table :comments, force: true do |t|
+    t.integer :post_id, null: false
+    t.text    :body, null: false
+    t.string  :type
+    t.integer :parent_id
+    t.references :author, polymorphic: true
+    t.datetime :updated_at
+    t.datetime :deleted_at
+    t.integer :company
+  end
+
+  create_table :posts, force: true do |t|
+    t.references :author
+    t.string :title, null: false
+    t.text    :body, null: false
+    t.string  :type
+  end
+
+  create_table :pets, primary_key: :pet_id, force: true do |t|
+    t.string :name
+    t.timestamps
+  end
+
+  create_table :toys, primary_key: :toy_id, force: true do |t|
+    t.string :name
+    t.integer :pet_id, :integer
+    t.timestamps null: false
+  end
+end

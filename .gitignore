@@ -1,0 +1,11 @@
+.DS_Store
+Thumbs.db
+
+# Local development
+.vscode/
+*.log
+.byebug_history
+
+# Agents
+AGENTS.md
+CLAUDE.md

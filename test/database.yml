@@ -1,0 +1,24 @@
+sqlite3:
+  adapter: sqlite3
+  database: ":memory:"
+
+postgresql:
+  adapter: postgresql
+  database: <%= ENV.fetch("POSTGRES_DB", "activerecord_updateinbulk_test") %>
+  username: <%= ENV.fetch("POSTGRES_USER", "postgres") %>
+  password: <%= ENV.fetch("POSTGRES_PASSWORD", "") %>
+  host: <%= ENV.fetch("POSTGRES_HOST", "127.0.0.1") %>
+  port: <%= ENV.fetch("POSTGRES_PORT", 5432) %>
+
+mysql2: &mysql2
+  adapter: mysql2
+  database: <%= ENV.fetch("MYSQL_DB", "activerecord_updateinbulk_test") %>
+  username: <%= ENV.fetch("MYSQL_USER", ENV.fetch("USER")) %>
+  password: <%= ENV.fetch("MYSQL_PASSWORD", "") %>
+  host: <%= ENV.fetch("MYSQL_HOST", "localhost") %>
+  port: <%= ENV.fetch("MYSQL_PORT", 3306) %>
+
+trilogy:
+  <<: *mysql2
+  adapter: trilogy
+  ssl_mode: required

@@ -1,0 +1,13 @@
+david:
+  name: David
+
+joao:
+  name: Joao
+  <% if ActiveRecord::Base.connection.supports_json? %>
+  preferences:
+    notifications: true
+    marketing: true
+    languages: [pt, en]
+    theme: dark
+    plan: 30
+  <% end %>
