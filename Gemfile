@@ -10,6 +10,8 @@ group :development, :test do
   gem "rubocop-rails"
   gem "rubocop-performance"
   gem "rake"
+  gem "irb"
+  gem "rdoc"
 end
 
 platforms :ruby do
