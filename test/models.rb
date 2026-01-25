@@ -18,6 +18,10 @@ class Book < ActiveRecord::Base
   enum :difficulty, [:easy, :medium, :hard], suffix: :to_read
   enum :cover, { hard: "hard", soft: "soft" }
   enum :boolean_status, { enabled: true, disabled: false }
+
+  def parameters
+    "#{author_visibility || "-"} #{language || "-"} #{difficulty || "-"} #{cover || "-"} #{font_size || "-"}"
+  end
 end
 
 class Car < ActiveRecord::Base

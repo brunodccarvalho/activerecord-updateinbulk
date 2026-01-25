@@ -3,7 +3,7 @@
 require "test_helper"
 require "models"
 
-class UpdateInBulkTest < ActiveSupport::TestCase
+class UpdateInBulkTest < TestCase
   fixtures :users, :books, :comments, :cars, :posts, :pets, :toys
 
   def setup
@@ -114,7 +114,7 @@ class UpdateInBulkTest < ActiveSupport::TestCase
     end
   end
 
-  def test_update_in_bulk_with_multiple_conditions
+  def test_update_in_bulk_with_multiple_conditions_ands_them
     Car.update_in_bulk [
       [{ make: "Toyota", model: "Prius" }, { year: 2001 }],
       [{ make: "Toyota", model: "Camry" }, { year: 2002 }],
@@ -145,11 +145,17 @@ class UpdateInBulkTest < ActiveSupport::TestCase
     assert_raises(ActiveRecord::UnknownAttributeError) do
       Book.update_in_bulk [[{ invalid_column: "David" }, { status: :written }]]
     end
+    assert_raises(ActiveRecord::UnknownAttributeError) do
+      Book.update_in_bulk([{ invalid_column: "David" }], [{ status: :written }])
+    end
   end
 
   def test_update_in_bulk_with_unknown_attribute_in_values
     assert_raises(ActiveRecord::UnknownAttributeError) do
       Book.update_in_bulk [[{ id: 1 }, { invalid_column: "Invalid" }]]
+    end
+    assert_raises(ActiveRecord::UnknownAttributeError) do
+      Book.update_in_bulk([{ id: 1 }], [{ invalid_column: "Invalid" }])
     end
   end
 
@@ -162,8 +168,8 @@ class UpdateInBulkTest < ActiveSupport::TestCase
 
   def test_update_in_bulk_with_aliased_attributes
     Book.update_in_bulk [
-      [{ id: 1 }, { title: "Updated Book 1" }],
-      [{ id: 2 }, { title: "Updated Book 2" }]
+      [1, { title: "Updated Book 1" }],
+      [2, { title: "Updated Book 2" }]
     ]
 
     assert_equal "Updated Book 1", Book.find(1).name
@@ -183,12 +189,19 @@ class UpdateInBulkTest < ActiveSupport::TestCase
     assert_equal "go wild", Comment.find(11).body
   end
 
-  def test_update_in_bulk_with_duplicate_keys_does_not_error
+  def test_update_in_bulk_with_duplicate_keys_uniform_does_not_error
     Book.update_in_bulk [
-      [{ id: 1 }, { name: "Reword" }],
+      [1, { name: "Reword" }],
+      [1, { name: "Peopleware" }]
+    ]
+    assert_includes ["Reword", "Peopleware"], Book.find(1).name
+  end
+
+  def test_update_in_bulk_with_duplicate_keys_mixed_does_not_error
+    Book.update_in_bulk [
+      [1, { name: "Reword" }],
       [{ id: 1 }, { name: "Peopleware" }]
     ]
-
     assert_includes ["Reword", "Peopleware"], Book.find(1).name
   end
 
@@ -359,11 +372,11 @@ class UpdateInBulkTest < ActiveSupport::TestCase
       4 => { cover: "soft", language: :spanish, font_size: :large },
     })
 
-    # initial: ["visible", "english", "easy", "hard", "small"]]
-    books = Book.where(id: 2..4).order(:id).pluck(:author_visibility, :language, :difficulty, :cover, :font_size)
-    assert_equal ["invisible", "french", "easy", "hard", "large"], books[0]
-    assert_equal ["visible", "english", "medium", "hard", "medium"], books[1]
-    assert_equal ["visible", "spanish", "easy", "soft", "large"], books[2]
+    # initial: [visible english easy hard small]
+    books = Book.where(id: 2..4).order(:id).to_a
+    assert_equal %[invisible french easy hard large], books[0].parameters
+    assert_equal %[visible english medium hard medium], books[1].parameters
+    assert_equal %[visible spanish easy soft large], books[2].parameters
   end
 
   def test_update_in_bulk_dynamic_with_nulls
@@ -373,11 +386,11 @@ class UpdateInBulkTest < ActiveSupport::TestCase
       4 => { cover: "soft", language: :spanish, font_size: nil },
     })
 
-    # initial: ["visible", "english", "easy", "hard", "small"]]
-    books = Book.where(id: 2..4).order(:id).pluck(:author_visibility, :language, :difficulty, :cover, :font_size)
-    assert_equal ["invisible", nil, "easy", "hard", "large"], books[0]
-    assert_equal ["visible", "english", nil, "hard", "medium"], books[1]
-    assert_equal ["visible", "spanish", "easy", "soft", nil], books[2]
+    # initial: [visible english easy hard small]
+    books = Book.where(id: 2..4).order(:id).to_a
+    assert_equal %[invisible - easy hard large], books[0].parameters
+    assert_equal %[visible english - hard medium], books[1].parameters
+    assert_equal %[visible spanish easy soft -], books[2].parameters
   end
 
   def test_update_in_bulk_dynamic_with_arel_sql_nulls
@@ -477,8 +490,6 @@ class UpdateInBulkTest < ActiveSupport::TestCase
         bad_post => { title: "ig" }
       })
     end
-    # assert_equal "ig", Post.find(good_post).title
-    # assert_not_equal "ig", Post.find(bad_post).title
   end
 
   def test_update_in_bulk_with_order_limit_offset
@@ -488,9 +499,6 @@ class UpdateInBulkTest < ActiveSupport::TestCase
         [{ author_id: 1 }, { body: "ig1" }]
       ])
     end
-    # assert_equal "ig0", Post.find(3).body
-    # assert_equal "ig1", Post.find(4).body
-    # assert_equal "hello", Post.find(5).body
   end
 
   def test_update_in_bulk_with_nil_condition

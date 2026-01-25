@@ -6,7 +6,7 @@ require "logger"
 require "stringio"
 require "active_support/test_case"
 
-class ActiveSupport::TestCase
+class TestCase < ActiveSupport::TestCase
   include ActiveRecord::TestFixtures
   include ActiveRecord::Assertions::QueryAssertions
 
