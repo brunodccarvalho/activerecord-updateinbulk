@@ -17,38 +17,38 @@ class UpdateInBulkTest < TestCase
 
   def test_update_in_bulk_array_format
     Book.update_in_bulk [
-      [{ id: 1 }, { name: "Updated Book 1" }],
-      [2, { name: "Updated Book 2" }],
-      [[3], { name: "Updated Book 3" }]
+      [{ id: 1 }, { name: "Scrum Development" }],
+      [2, { name: "Django for noobies" }],
+      [[3], { name: "Data-Driven Design" }]
     ]
 
-    assert_equal "Updated Book 1", Book.find(1).name
-    assert_equal "Updated Book 2", Book.find(2).name
-    assert_equal "Updated Book 3", Book.find(3).name
-    assert_no_match(/Updated Book/, Book.find(4).name)
+    assert_equal "Scrum Development", Book.find(1).name
+    assert_equal "Django for noobies", Book.find(2).name
+    assert_equal "Data-Driven Design", Book.find(3).name
+    assert_equal "Thoughtleadering", Book.find(4).name
   end
 
   def test_update_in_bulk_hash_format
     Book.update_in_bulk({
-      1 => { name: "Updated Book 1" },
-      [2] => { name: "Updated Book 2" }
+      1 => { name: "Scrum Development" },
+      [2] => { name: "Django for noobies" }
     })
 
-    assert_equal "Updated Book 1", Book.find(1).name
-    assert_equal "Updated Book 2", Book.find(2).name
-    assert_no_match(/Updated Book/, Book.find(3).name)
+    assert_equal "Scrum Development", Book.find(1).name
+    assert_equal "Django for noobies", Book.find(2).name
+    assert_equal "Domain-Driven Design", Book.find(3).name
   end
 
   def test_update_in_bulk_separated_format
     Book.update_in_bulk(
       [1, [2], { id: 3 }],
-      [{ name: "Updated Book 1" }, { name: "Updated Book 2" }, { name: "Updated Book 3" }]
+      [{ name: "Scrum Development" }, { name: "Django for noobies" }, { name: "Data-Driven Design" }]
     )
 
-    assert_equal "Updated Book 1", Book.find(1).name
-    assert_equal "Updated Book 2", Book.find(2).name
-    assert_equal "Updated Book 3", Book.find(3).name
-    assert_no_match(/Updated Book 4/, Book.find(4).name)
+    assert_equal "Scrum Development", Book.find(1).name
+    assert_equal "Django for noobies", Book.find(2).name
+    assert_equal "Data-Driven Design", Book.find(3).name
+    assert_equal "Thoughtleadering", Book.find(4).name
   end
 
   def test_update_in_bulk_array_format_composite
@@ -88,19 +88,19 @@ class UpdateInBulkTest < TestCase
 
   def test_update_in_bulk_length_mismatch_separated_format
     assert_raises(ArgumentError) do
-      Book.update_in_bulk([1, 2], [{ name: "Updated Book 1" }])
+      Book.update_in_bulk([1, 2], [{ name: "Scrum Development" }])
     end
   end
 
   def test_update_in_bulk_without_conditions
     assert_raises(ArgumentError) do
-      Book.update_in_bulk({ [] => { name: "Updated Book 1" } })
+      Book.update_in_bulk({ [] => { name: "Scrum Development" } })
     end
     assert_raises(ArgumentError) do
-      Book.update_in_bulk [[{}, { name: "Updated Book 1" }]]
+      Book.update_in_bulk [[{}, { name: "Scrum Development" }]]
     end
     assert_raises(ArgumentError) do
-      Book.update_in_bulk([{}], [{ name: "Updated Book 1" }])
+      Book.update_in_bulk([{}], [{ name: "Scrum Development" }])
     end
   end
 
@@ -168,12 +168,12 @@ class UpdateInBulkTest < TestCase
 
   def test_update_in_bulk_with_aliased_attributes
     Book.update_in_bulk [
-      [1, { title: "Updated Book 1" }],
-      [2, { title: "Updated Book 2" }]
+      [1, { title: "Scrum Development" }],
+      [2, { title: "Django for noobies" }]
     ]
 
-    assert_equal "Updated Book 1", Book.find(1).name
-    assert_equal "Updated Book 2", Book.find(2).name
+    assert_equal "Scrum Development", Book.find(1).name
+    assert_equal "Django for noobies", Book.find(2).name
   end
 
   def test_update_in_bulk_returns_number_of_rows_affected_across_all_value_rows
@@ -352,7 +352,7 @@ class UpdateInBulkTest < TestCase
 
   def test_update_in_bulk_rejects_unknown_formulas
     assert_raises(ArgumentError) do
-      Book.update_in_bulk({ 1 => { name: "Updated Book 1" } }, formulas: { name: :mystery })
+      Book.update_in_bulk({ 1 => { name: "Scrum Development" } }, formulas: { name: :mystery })
     end
   end
 
@@ -394,7 +394,7 @@ class UpdateInBulkTest < TestCase
     bad_proc = lambda { |lhs| lhs }
 
     assert_raises(ArgumentError) do
-      Book.update_in_bulk({ 1 => { name: "Updated Book 1" } }, formulas: { name: bad_proc })
+      Book.update_in_bulk({ 1 => { name: "Scrum Development" } }, formulas: { name: bad_proc })
     end
   end
 
@@ -404,7 +404,7 @@ class UpdateInBulkTest < TestCase
     end
 
     assert_raises(ArgumentError) do
-      Book.update_in_bulk({ 1 => { name: "Updated Book 1" } }, formulas: { name: bad_proc })
+      Book.update_in_bulk({ 1 => { name: "Scrum Development" } }, formulas: { name: bad_proc })
     end
   end
 
@@ -437,11 +437,10 @@ class UpdateInBulkTest < TestCase
   def test_update_in_bulk_custom_formula_proc_json_rotating_prepend
     skip unless json_array_rotating_prepend_proc
 
-    User.update_in_bulk([
-      [{ name: "Albert" }, { notifications: "Hello" }],
-      [{ name: "Bernard" }, { notifications: "Hello" }],
-      [{ name: "Carol" }, { notifications: "Hello" }]
-    ], formulas: { notifications: json_array_rotating_prepend_proc })
+    User.update_in_bulk(
+      [{ name: "Albert" }, { name: "Bernard" }, { name: "Carol" }],
+      [{ notifications: "Hello" }, { notifications: "Hello" }, { notifications: "Hello" }],
+      formulas: { notifications: json_array_rotating_prepend_proc })
 
     assert_equal ["Hello", "One", "Two", "Three"], User.find_by(name: "Albert").notifications
     assert_equal ["Hello", "One", "Two", "Three", "Four"], User.find_by(name: "Bernard").notifications
@@ -504,7 +503,7 @@ class UpdateInBulkTest < TestCase
 
   def test_update_in_bulk_timestamp_updates_are_wrapped_in_parentheses
     assert_queries_match(/ = \(CASE/) do
-      Book.update_in_bulk({ 1 => { name: "Updated Book 1", status: :proposed } }, record_timestamps: true)
+      Book.update_in_bulk({ 1 => { name: "Scrum Development", status: :proposed } }, record_timestamps: true)
     end
   end
 
@@ -772,8 +771,8 @@ class UpdateInBulkTest < TestCase
   def test_update_in_bulk_logs_message_including_model_name
     capture_log_output do |output|
       Book.update_in_bulk({
-        1 => { name: "Updated Book 1" },
-        2 => { name: "Updated Book 2" }
+        1 => { name: "Scrum Development" },
+        2 => { name: "Django for noobies" }
       })
       assert_match "Book Update in Bulk", output.string
     end
