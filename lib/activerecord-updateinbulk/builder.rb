@@ -5,23 +5,53 @@ require "active_support/core_ext/enumerable"
 module ActiveRecord::UpdateInBulk
   class Builder
     class << self
-      # Normalize the input shape into a paired format.
-      def normalize_updates(model, updates)
-        if updates.is_a?(Hash) # indexed format
-          if model.composite_primary_key?
-            updates.map { |id, assigns| [primary_key_zip(model.primary_key, id), assigns] }
-          else
-            updates.map { |id, assigns| [{ model.primary_key => primary_key_unwrap(id) }, assigns] }
+      # Normalize all input formats into separated format [conditions, assigns].
+      def normalize_updates(model, updates, values = nil)
+        conditions = []
+        assigns = []
+
+        if values # separated format
+          unless updates.is_a?(Array) && values.is_a?(Array)
+            raise ArgumentError, "Separated format expects arrays for conditions and values"
           end
-        else
-          updates
-        end.filter_map do |(conditions, assigns)|
-          # Drop rows with blank assigns; stringify keys for consistent downstream handling.
-          [conditions.stringify_keys, assigns.stringify_keys] unless assigns.blank?
+          if updates.size != values.size
+            raise ArgumentError, "Conditions and values must have the same length"
+          end
+
+          updates.each_with_index do |row_conditions, index|
+            row_assigns = values[index]
+            next if row_assigns.blank?
+            conditions << normalize_conditions(model, row_conditions)
+            assigns << row_assigns.stringify_keys
+          end
+        elsif updates.is_a?(Hash) # indexed format
+          updates.each do |id, row_assigns|
+            next if row_assigns.blank?
+            conditions << normalize_conditions(model, id).stringify_keys
+            assigns << row_assigns.stringify_keys
+          end
+        else # paired format
+          updates.each do |(row_conditions, row_assigns)|
+            next if row_assigns.blank?
+            conditions << normalize_conditions(model, row_conditions).stringify_keys
+            assigns << row_assigns.stringify_keys
+          end
         end
+
+        [conditions, assigns]
       end
 
       private
+        def normalize_conditions(model, conditions)
+          if conditions.is_a?(Hash)
+            conditions
+          elsif model.composite_primary_key?
+            primary_key_zip(model.primary_key, conditions)
+          else
+            { model.primary_key => primary_key_unwrap(conditions) }
+          end.stringify_keys
+        end
+
         def primary_key_zip(keys, values)
           unless values.is_a?(Array)
             raise ArgumentError, "Model has composite primary key, but a condition key given is not an array"
@@ -45,10 +75,11 @@ module ActiveRecord::UpdateInBulk
 
     attr_reader :model, :connection
 
-    def initialize(relation, connection, updates, record_timestamps: nil)
+    def initialize(relation, connection, conditions, assigns, record_timestamps: nil)
       @model, @connection = relation.model, connection
       @record_timestamps = record_timestamps.nil? ? model.record_timestamps : record_timestamps
-      @updates = self.class.normalize_updates(@model, updates)
+      @conditions = conditions
+      @assigns = assigns
 
       resolve_attribute_aliases!
       resolve_read_and_write_keys!
@@ -98,7 +129,7 @@ module ActiveRecord::UpdateInBulk
       end
 
       def optional_keys
-        @optional_keys ||= write_keys - @updates.map(&:second).map!(&:keys).reduce(write_keys, &:intersection)
+        @optional_keys ||= write_keys - @assigns.map(&:keys).reduce(write_keys, &:intersection)
       end
 
       def timestamp_keys
@@ -108,19 +139,20 @@ module ActiveRecord::UpdateInBulk
       def resolve_attribute_aliases!
         return if model.attribute_aliases.empty?
 
-        @updates.each do |(conditions, assigns)|
-          conditions.transform_keys! { |attribute| model.attribute_alias(attribute) || attribute }
-          assigns.transform_keys! { |attribute| model.attribute_alias(attribute) || attribute }
+        @conditions.each_with_index do |row_conditions, index|
+          row_assigns = @assigns[index]
+          row_conditions.transform_keys! { |attribute| model.attribute_alias(attribute) || attribute }
+          row_assigns.transform_keys! { |attribute| model.attribute_alias(attribute) || attribute }
         end
       end
 
       def resolve_read_and_write_keys!
-        @read_keys = @updates.first[0].keys.to_set
-        @write_keys = @updates.map(&:second).flat_map(&:keys).to_set
+        @read_keys = @conditions.first.keys.to_set
+        @write_keys = @assigns.flat_map(&:keys).to_set
       end
 
       def verify_read_and_write_keys!
-        if @updates.empty?
+        if @conditions.empty?
           raise ArgumentError, "Empty updates object"
         end
         if read_keys.empty?
@@ -130,14 +162,15 @@ module ActiveRecord::UpdateInBulk
           raise ArgumentError, "Empty values object"
         end
 
-        @updates.each do |(conditions, assigns)|
-          if conditions.each_value.any?(nil)
+        @conditions.each_with_index do |row_conditions, index|
+          row_assigns = @assigns[index]
+          if row_conditions.each_value.any?(nil)
             raise NotImplementedError, "NULL condition values are not supported"
           end
-          if assigns.blank?
+          if row_assigns.blank?
             raise ArgumentError, "Empty values object"
           end
-          if read_keys != conditions.keys.to_set
+          if read_keys != row_conditions.keys.to_set
             raise ArgumentError, "All objects being updated must have the same condition keys"
           end
         end
@@ -150,13 +183,14 @@ module ActiveRecord::UpdateInBulk
       def serialize_values_rows
         @bitmask_keys = Set.new
 
-        @updates.map do |(conditions, assigns)|
+        @conditions.each_with_index.map do |row_conditions, row_index|
+          row_assigns = @assigns[row_index]
           condition_values = read_keys.map do |key|
-            yield(key, conditions[key])
+            yield(key, row_conditions[key])
           end
           write_values = write_keys.map do |key|
-            next unless assigns.key?(key)
-            value = yield(key, assigns[key])
+            next unless row_assigns.key?(key)
+            value = yield(key, row_assigns[key])
             @bitmask_keys.add(key) if optional_keys.include?(key) && might_be_nil_value?(value)
             value
           end
@@ -166,10 +200,10 @@ module ActiveRecord::UpdateInBulk
 
       def append_bitmask_column(rows)
         rows.each_with_index do |row, row_index|
-          assigns = @updates[row_index][1]
+          row_assigns = @assigns[row_index]
           bitmask = "0" * bitmask_keys.size
           bitmask_keys.each_with_index do |key, index|
-            bitmask[index] = "1" if assigns.key?(key)
+            bitmask[index] = "1" if row_assigns.key?(key)
           end
           row.push(bitmask)
         end

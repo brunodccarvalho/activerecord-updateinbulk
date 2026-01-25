@@ -15,18 +15,20 @@ class UpdateInBulkTest < ActiveSupport::TestCase
     Book.record_timestamps = true
   end
 
-  def test_update_in_bulk_uniform_array_format
+  def test_update_in_bulk_array_format
     Book.update_in_bulk [
       [{ id: 1 }, { name: "Updated Book 1" }],
-      [{ id: 2 }, { name: "Updated Book 2" }]
+      [2, { name: "Updated Book 2" }],
+      [[3], { name: "Updated Book 3" }]
     ]
 
     assert_equal "Updated Book 1", Book.find(1).name
     assert_equal "Updated Book 2", Book.find(2).name
-    assert_no_match(/Updated Book/, Book.find(3).name)
+    assert_equal "Updated Book 3", Book.find(3).name
+    assert_no_match(/Updated Book/, Book.find(4).name)
   end
 
-  def test_update_in_bulk_uniform_hash_format
+  def test_update_in_bulk_hash_format
     Book.update_in_bulk({
       1 => { name: "Updated Book 1" },
       [2] => { name: "Updated Book 2" }
@@ -37,7 +39,30 @@ class UpdateInBulkTest < ActiveSupport::TestCase
     assert_no_match(/Updated Book/, Book.find(3).name)
   end
 
-  def test_update_in_bulk_by_uniform_hash_format_composite
+  def test_update_in_bulk_separated_format
+    Book.update_in_bulk(
+      [1, [2], { id: 3 }],
+      [{ name: "Updated Book 1" }, { name: "Updated Book 2" }, { name: "Updated Book 3" }]
+    )
+
+    assert_equal "Updated Book 1", Book.find(1).name
+    assert_equal "Updated Book 2", Book.find(2).name
+    assert_equal "Updated Book 3", Book.find(3).name
+    assert_no_match(/Updated Book 4/, Book.find(4).name)
+  end
+
+  def test_update_in_bulk_array_format_composite
+    Car.all.update_in_bulk(
+      [["Toyota", "Camry"], { make: "Honda", model: "Civic" }],
+      [{ year: 2001 }, { year: 2002 }]
+    )
+
+    assert_equal 2001, Car.find(["Toyota", "Camry"]).year
+    assert_equal 2002, Car.find(["Honda", "Civic"]).year
+    assert_equal 1964, Car.find(["Ford", "Mustang"]).year
+  end
+
+  def test_update_in_bulk_hash_format_composite
     Car.all.update_in_bulk({
       ["Toyota", "Camry"] => { year: 2001 },
       ["Honda", "Civic"]  => { year: 2002 },
@@ -50,6 +75,23 @@ class UpdateInBulkTest < ActiveSupport::TestCase
     assert_equal 1964, Car.find(["Ford", "Mustang"]).year
   end
 
+  def test_update_in_bulk_separated_format_composite
+    Car.all.update_in_bulk(
+      [["Toyota", "Camry"], ["Honda", "Civic"]],
+      [{ year: 2001 }, { year: 2002 }]
+    )
+
+    assert_equal 2001, Car.find(["Toyota", "Camry"]).year
+    assert_equal 2002, Car.find(["Honda", "Civic"]).year
+    assert_equal 1964, Car.find(["Ford", "Mustang"]).year
+  end
+
+  def test_update_in_bulk_length_mismatch_separated_format
+    assert_raises(ArgumentError) do
+      Book.update_in_bulk([1, 2], [{ name: "Updated Book 1" }])
+    end
+  end
+
   def test_update_in_bulk_without_conditions
     assert_raises(ArgumentError) do
       Book.update_in_bulk({ [] => { name: "Updated Book 1" } })
@@ -57,14 +99,18 @@ class UpdateInBulkTest < ActiveSupport::TestCase
     assert_raises(ArgumentError) do
       Book.update_in_bulk [[{}, { name: "Updated Book 1" }]]
     end
+    assert_raises(ArgumentError) do
+      Book.update_in_bulk([{}], [{ name: "Updated Book 1" }])
+    end
   end
 
-  def test_update_in_bulk_without_values_or_statements
+  def test_update_in_bulk_without_values_or_assigns
     assert_no_queries do
       assert_equal 0, Book.update_in_bulk([])
       assert_equal 0, Book.update_in_bulk({})
       assert_equal 0, Book.update_in_bulk({ 1 => {} })
       assert_equal 0, Book.update_in_bulk([[{ id: 1 }, {}]])
+      assert_equal 0, Book.update_in_bulk([1], [{}])
     end
   end
 
@@ -489,7 +535,7 @@ class UpdateInBulkTest < ActiveSupport::TestCase
         1 => { name: "Updated Book 1" },
         2 => { name: "Updated Book 2" }
       })
-      assert_match "Book Update Bulk", output.string
+      assert_match "Book Update in Bulk", output.string
     end
   end
 
