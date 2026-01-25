@@ -46,17 +46,17 @@ module ActiveRecord::UpdateInBulk
       def apply_formula(formula, lhs, rhs, model)
         case formula
         when "add"
-          Arel::Nodes::InfixOperation.new("+", lhs, rhs)
+          lhs + rhs
         when "subtract"
-          Arel::Nodes::InfixOperation.new("-", lhs, rhs)
+          lhs - rhs
         when "concat_append"
-          Arel::Nodes::Concat.new(lhs, rhs)
+          lhs.concat(rhs)
         when "concat_prepend"
-          Arel::Nodes::Concat.new(rhs, lhs)
+          rhs.concat(lhs)
         when "min"
-          Arel::Nodes::Least.new([lhs, rhs])
+          lhs.least(rhs)
         when "max"
-          Arel::Nodes::Greatest.new([lhs, rhs])
+          lhs.greatest(rhs)
         when Proc
           node = apply_proc_formula(formula, lhs, rhs, model)
           unless Arel.arel_node?(node)

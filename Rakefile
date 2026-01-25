@@ -7,6 +7,8 @@ require "yaml"
 require "active_record"
 require "active_record/tasks/database_tasks"
 
+require_relative "test/test_helper"
+
 ADAPTERS = %w[sqlite3 postgresql mysql2 trilogy].freeze
 
 def database_config(adapter)

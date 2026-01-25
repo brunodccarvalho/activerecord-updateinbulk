@@ -22,6 +22,7 @@ module ActiveRecord
 end
 
 require "activerecord-updateinbulk/builder"
+require "activerecord-updateinbulk/arel/math"
 require "activerecord-updateinbulk/arel/nodes/least"
 require "activerecord-updateinbulk/arel/nodes/greatest"
 require "activerecord-updateinbulk/arel/nodes/values_table"
