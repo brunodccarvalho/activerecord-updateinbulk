@@ -83,3 +83,6 @@ class SpecialPost < Post; end
 
 class User < ActiveRecord::Base
 end
+
+class ProductStock < ActiveRecord::Base
+end

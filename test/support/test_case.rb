@@ -9,6 +9,8 @@ require "active_support/test_case"
 class TestCase < ActiveSupport::TestCase
   include ActiveRecord::TestFixtures
   include ActiveRecord::Assertions::QueryAssertions
+  include TestSupport::AdapterHelper
+  extend TestSupport::AdapterHelper
 
   self.fixture_paths = [File.expand_path("../fixtures", __dir__)]
   self.use_transactional_tests = true

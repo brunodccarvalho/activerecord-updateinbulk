@@ -4,7 +4,7 @@ require "test_helper"
 require "models"
 
 class UpdateInBulkTest < TestCase
-  fixtures :users, :books, :comments, :cars, :posts, :pets, :toys
+  fixtures :users, :books, :comments, :cars, :posts, :pets, :toys, :product_stocks
 
   def setup
     Arel::Table.engine = nil # should not rely on the global Arel::Table.engine
@@ -246,6 +246,152 @@ class UpdateInBulkTest < TestCase
 
     assert_equal({ "color" => "blue" }, User.find_by(name: "David").preferences)
     assert_equal({ "width" => 1440 }, User.find_by(name: "Joao").preferences)
+  end
+
+  def test_update_in_bulk_formulas_add
+    ProductStock.update_in_bulk({
+      "Tree" => { quantity: 5 },
+      "Toy train" => { quantity: 3 }
+    }, formulas: { quantity: :add })
+
+    assert_equal 15, ProductStock.find("Tree").quantity
+    assert_equal 13, ProductStock.find("Toy train").quantity
+  end
+
+  def test_update_in_bulk_formulas_subtract
+    ProductStock.update_in_bulk({
+      "Christmas balls" => { quantity: 30 },
+      "Wreath" => { quantity: 5 }
+    }, formulas: { quantity: :subtract })
+
+    assert_equal 70, ProductStock.find("Christmas balls").quantity
+    assert_equal 45, ProductStock.find("Wreath").quantity
+  end
+
+  def test_update_in_bulk_formulas_concat_append
+    Book.update_in_bulk({
+      1 => { name: " (2nd edition)" },
+      2 => { name: " (revised)" }
+    }, formulas: { name: :concat_append })
+
+    assert_equal "Agile Web Development with Rails (2nd edition)", Book.find(1).name
+    assert_equal "Ruby for Rails (revised)", Book.find(2).name
+  end
+
+  def test_update_in_bulk_formulas_concat_prepend
+    Book.update_in_bulk({
+      1 => { name: "Classic: " },
+      2 => { name: "Classic: " }
+    }, formulas: { name: :concat_prepend })
+
+    assert_equal "Classic: Agile Web Development with Rails", Book.find(1).name
+    assert_equal "Classic: Ruby for Rails", Book.find(2).name
+  end
+
+  def test_update_in_bulk_formulas_min
+    ProductStock.update_in_bulk({
+      "Tree" => { quantity: 5 },
+      "Toy train" => { quantity: 15 }
+    }, formulas: { quantity: :min })
+
+    assert_equal 5, ProductStock.find("Tree").quantity
+    assert_equal 10, ProductStock.find("Toy train").quantity
+  end
+
+  def test_update_in_bulk_formulas_max
+    ProductStock.update_in_bulk({
+      "Stockings" => { quantity: 5 },
+      "Sweater" => { quantity: 2 }
+    }, formulas: { quantity: :max })
+
+    assert_equal 5, ProductStock.find("Stockings").quantity
+    assert_equal 2, ProductStock.find("Sweater").quantity
+  end
+
+  def test_update_in_bulk_formulas_partial_columns
+    Book.update_all(pages: 1)
+
+    Book.update_in_bulk({
+      1 => { name: " X", pages: 100 },
+      2 => { name: " Y", pages: 200 }
+    }, formulas: { name: :concat_append })
+
+    books = Book.where(id: 1..2).order(:id).to_a
+    assert_equal "Agile Web Development with Rails X", books[0].name
+    assert_equal 100, books[0].pages
+    assert_equal "Ruby for Rails Y", books[1].name
+    assert_equal 200, books[1].pages
+  end
+
+  def test_update_in_bulk_formulas_with_optional_columns
+    Book.update_in_bulk({
+      1 => { name: " X" },
+      2 => { pages: 7 }
+    }, formulas: { name: :concat_append })
+
+    assert_equal "Agile Web Development with Rails X", Book.find(1).name
+    assert_equal "Ruby for Rails", Book.find(2).name
+  end
+
+  def test_update_in_bulk_formulas_with_paired_format
+    ProductStock.update_in_bulk([
+      [{ name: "Tree" }, { quantity: 5 }],
+      [{ name: "Toy train" }, { quantity: 3 }]
+    ], formulas: { quantity: :add })
+
+    assert_equal 15, ProductStock.find("Tree").quantity
+    assert_equal 13, ProductStock.find("Toy train").quantity
+  end
+
+  def test_update_in_bulk_formulas_with_separated_format
+    ProductStock.update_in_bulk(["Tree", "Toy train"], [{ quantity: 5 }, { quantity: 3 }], formulas: { quantity: :add })
+
+    assert_equal 15, ProductStock.find("Tree").quantity
+    assert_equal 13, ProductStock.find("Toy train").quantity
+  end
+
+  def test_update_in_bulk_rejects_unknown_formulas
+    assert_raises(ArgumentError) do
+      Book.update_in_bulk({ 1 => { name: "Updated Book 1" } }, formulas: { name: :mystery })
+    end
+  end
+
+  def test_update_in_bulk_rejects_formulas_for_unknown_columns
+    assert_raises(ArgumentError) do
+      Book.update_in_bulk({ 1 => { pages: 1 } }, formulas: { name: :concat_append })
+    end
+  end
+
+  def test_update_in_bulk_rejects_subtract_below_zero
+    assert_equal [10], ProductStock.where(name: ["Tree", "Toy train", "Toy car"]).pluck(:quantity).uniq
+
+    assert_violation(check_constraint_violation_type) do
+      transaction_if_postgresql(requires_new: true) do
+        ProductStock.update_in_bulk({
+          "Tree" => { quantity: 15 },
+          "Toy train" => { quantity: 4 },
+          "Toy car" => { quantity: 3 }
+        }, formulas: { quantity: :subtract })
+      end
+    end
+
+    assert_equal [10], ProductStock.where(name: ["Tree", "Toy train", "Toy car"]).pluck(:quantity).uniq
+  end
+
+  def test_update_in_bulk_rejects_concat_beyond_limit
+    assert_equal [32, 14, 20], Book.where(id: [1, 2, 3]).order(:id).pluck(:title).map(&:length)
+
+    assert_violation(value_too_long_violation_type) do
+      transaction_if_postgresql(requires_new: true) do
+        Book.update_in_bulk({
+          1 => { name: " (3rd edition).........." },
+          2 => { name: " (4th edition).........." },
+          3 => { name: " (5th edition).........." }
+        }, formulas: { name: :concat_append })
+      end
+    end
+
+    assert_equal [32, 14, 20], Book.where(id: [1, 2, 3]).order(:id).pluck(:title).map(&:length)
   end
 
   def test_update_in_bulk_does_not_support_referential_arel_sql_in_conditions
@@ -579,18 +725,18 @@ class UpdateInBulkTest < TestCase
     })
   end
 
-  # if current_adapter?(:Mysql2Adapter, :TrilogyAdapter)
-  #   def test_update_in_bulk_when_table_name_contains_database
-  #     database_name = Book.connection_db_config.database
-  #     Book.table_name = "#{database_name}.books"
-  #
-  #     assert_nothing_raised do
-  #       Book.update_in_bulk [[{ id: 1 }, { name: "Rework" }]]
-  #     end
-  #   ensure
-  #     Book.table_name = "books"
-  #   end
-  # end
+  if current_adapter?(:Mysql2Adapter, :TrilogyAdapter)
+    def test_update_in_bulk_when_table_name_contains_database
+      database_name = Book.connection_db_config.database
+      Book.table_name = "#{database_name}.books"
+
+      assert_nothing_raised do
+        Book.update_in_bulk [[{ id: 1 }, { name: "Rework" }]]
+      end
+    ensure
+      Book.table_name = "books"
+    end
+  end
 
   private
     def with_record_timestamps(model, value)
@@ -599,5 +745,17 @@ class UpdateInBulkTest < TestCase
       yield
     ensure
       model.record_timestamps = original
+    end
+
+    def assert_violation(violation, &block)
+      assert_raises(violation, &block)
+    end
+
+    def transaction_if_postgresql(**kwargs, &block)
+      if ActiveRecord::Base.connection.adapter_name == "PostgreSQL"
+        ProductStock.transaction(**kwargs, &block)
+      else
+        yield
+      end
     end
 end

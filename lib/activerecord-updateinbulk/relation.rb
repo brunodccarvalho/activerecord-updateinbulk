@@ -2,7 +2,7 @@
 
 module ActiveRecord::UpdateInBulk
   module Relation
-    def update_in_bulk(updates, values = nil, record_timestamps: nil)
+    def update_in_bulk(updates, values = nil, record_timestamps: nil, formulas: nil)
       conditions, assigns = Builder.normalize_updates(model, updates, values)
       return 0 if @none || conditions.empty?
 
@@ -23,7 +23,8 @@ module ActiveRecord::UpdateInBulk
           c,
           conditions,
           assigns,
-          record_timestamps:
+          record_timestamps:,
+          formulas:
         ).build_arel
         arel = arel.join(values_table).on(*join_conditions)
 

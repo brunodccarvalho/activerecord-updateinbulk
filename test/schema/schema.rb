@@ -21,7 +21,7 @@ ActiveRecord::Schema.define do
     t.references :author
     t.string :format
     t.integer :pages, null: false, **unsigned, default: 0
-    t.column :name, :string
+    t.column :name, :string, limit: 48
     t.column :status, :integer, default: 0
     t.column :last_read, :integer, default: 0
     t.column :language, :integer, default: 0
@@ -36,6 +36,10 @@ ActiveRecord::Schema.define do
     t.datetime :created_at
     t.datetime :updated_at
     t.date :updated_on
+
+    if TestSupport::DatabaseConfig.adapter == "sqlite3"
+      t.check_constraint "length(name) <= 48", name: "books_name_length"
+    end
   end
 
   create_table :categories, force: true do |t|
@@ -76,5 +80,12 @@ ActiveRecord::Schema.define do
     t.string :name
     t.integer :pet_id, :integer
     t.timestamps null: false
+  end
+
+  create_table :product_stocks, id: false, force: true do |t|
+    t.string :name, null: false, limit: 24, primary_key: true
+    t.integer :quantity, null: false, default: 0
+    t.check_constraint "quantity >= 0", name: "quantity_non_negative"
+    t.index :name, unique: true
   end
 end

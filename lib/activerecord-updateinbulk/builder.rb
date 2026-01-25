@@ -4,6 +4,8 @@ require "active_support/core_ext/enumerable"
 
 module ActiveRecord::UpdateInBulk
   class Builder
+    FORMULAS = %w[add subtract concat_append concat_prepend min max].freeze
+
     class << self
       # Normalize all input formats into separated format [conditions, assigns].
       def normalize_updates(model, updates, values = nil)
@@ -41,6 +43,25 @@ module ActiveRecord::UpdateInBulk
         [conditions, assigns]
       end
 
+      def apply_formula(formula, lhs, rhs)
+        case formula
+        when "add"
+          Arel::Nodes::InfixOperation.new("+", lhs, rhs)
+        when "subtract"
+          Arel::Nodes::InfixOperation.new("-", lhs, rhs)
+        when "concat_append"
+          Arel::Nodes::Concat.new(lhs, rhs)
+        when "concat_prepend"
+          Arel::Nodes::Concat.new(rhs, lhs)
+        when "min"
+          Arel::Nodes::Least.new([lhs, rhs])
+        when "max"
+          Arel::Nodes::Greatest.new([lhs, rhs])
+        else
+          rhs
+        end
+      end
+
       private
         def normalize_conditions(model, conditions)
           if conditions.is_a?(Hash)
@@ -75,11 +96,12 @@ module ActiveRecord::UpdateInBulk
 
     attr_reader :model, :connection
 
-    def initialize(relation, connection, conditions, assigns, record_timestamps: nil)
+    def initialize(relation, connection, conditions, assigns, record_timestamps: nil, formulas: nil)
       @model, @connection = relation.model, connection
       @record_timestamps = record_timestamps.nil? ? model.record_timestamps : record_timestamps
       @conditions = conditions
       @assigns = assigns
+      @formulas = normalize_formulas(formulas)
 
       resolve_attribute_aliases!
       resolve_read_and_write_keys!
@@ -105,7 +127,10 @@ module ActiveRecord::UpdateInBulk
         model.arel_table[key].eq(values_table[index])
       end
       set_assignments = write_keys.map.with_index do |key, index|
+        formula = @formulas[key]
+        lhs = model.arel_table[key]
         rhs = values_table[index + read_keys.size]
+        rhs = self.class.apply_formula(formula, lhs, rhs) if formula
         if function = bitmask_functions[key]
           rhs = Arel::Nodes::Case.new(function).when("1").then(rhs).else(model.arel_table[key])
         elsif optional_keys.include?(key)
@@ -174,6 +199,12 @@ module ActiveRecord::UpdateInBulk
             raise ArgumentError, "All objects being updated must have the same condition keys"
           end
         end
+        if @formulas.any?
+          unknown_formula_key = (@formulas.keys.to_set - write_keys).first
+          if unknown_formula_key
+            raise ArgumentError, "Formula given for unknown column: #{unknown_formula_key}"
+          end
+        end
 
         columns = read_keys | write_keys
         unknown_column = (columns - @model.columns_hash.keys).first
@@ -228,6 +259,19 @@ module ActiveRecord::UpdateInBulk
         when String, Symbol, Numeric, BigDecimal, Date, Time, true, false then false
         else true
         end
+      end
+
+      def normalize_formulas(formulas)
+        return {} if formulas.blank?
+
+        normalized = formulas.to_h do |key, value|
+          [key.to_s, value.to_s]
+        end
+        invalid = normalized.values - FORMULAS
+        if invalid.any?
+          raise ArgumentError, "Unknown formula: #{invalid.first.inspect}"
+        end
+        normalized
       end
   end
 end

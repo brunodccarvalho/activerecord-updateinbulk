@@ -1,4 +1,4 @@
-awdr:
+agile:
   author_id: 1
   id: 1
   name: "Agile Web Development with Rails"
@@ -12,7 +12,7 @@ awdr:
   boolean_status: :enabled
   cover: "soft"
 
-rfr:
+rails:
   author_id: 1
   id: 2
   name: "Ruby for Rails"
@@ -20,7 +20,7 @@ rfr:
   status: "proposed"
   last_read: "reading"
 
-ddd:
+design:
   author_id: 1
   id: 3
   name: "Domain-Driven Design"
@@ -28,7 +28,7 @@ ddd:
   status: 2
   last_read: "forgotten"
 
-tlg:
+database:
   author_id: 1
   id: 4
-  name: "Thoughtleadering"
+  name: "Database System Concepts"

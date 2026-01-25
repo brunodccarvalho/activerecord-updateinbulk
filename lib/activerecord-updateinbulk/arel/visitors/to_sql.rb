@@ -2,6 +2,18 @@
 
 module ActiveRecord::UpdateInBulk
   module ToSql
+    def visit_Arel_Nodes_Least(o, collector)
+      collector << "LEAST("
+      inject_join(o.expressions, collector, ", ")
+      collector << ")"
+    end
+
+    def visit_Arel_Nodes_Greatest(o, collector)
+      collector << "GREATEST("
+      inject_join(o.expressions, collector, ", ")
+      collector << ")"
+    end
+
     def visit_Arel_Nodes_ValuesTable(o, collector)
       row_prefix = @connection.values_table_row_prefix
 

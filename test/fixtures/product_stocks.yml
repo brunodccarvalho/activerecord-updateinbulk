@@ -1,0 +1,31 @@
+tree:
+  name: Tree
+  quantity: 10
+
+toy_train:
+  name: Toy train
+  quantity: 10
+
+toy_car:
+  name: Toy car
+  quantity: 10
+
+stockings:
+  name: Stockings
+  quantity: 0
+
+sweater:
+  name: Sweater
+  quantity: 0
+
+balls:
+  name: Christmas balls
+  quantity: 100
+
+wreath:
+  name: Wreath
+  quantity: 50
+
+lights:
+  name: Tree lights
+  quantity: 400
