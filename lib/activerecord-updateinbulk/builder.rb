@@ -29,13 +29,13 @@ module ActiveRecord::UpdateInBulk
         elsif updates.is_a?(Hash) # indexed format
           updates.each do |id, row_assigns|
             next if row_assigns.blank?
-            conditions << normalize_conditions(model, id).stringify_keys
+            conditions << normalize_conditions(model, id)
             assigns << row_assigns.stringify_keys
           end
         else # paired format
           updates.each do |(row_conditions, row_assigns)|
             next if row_assigns.blank?
-            conditions << normalize_conditions(model, row_conditions).stringify_keys
+            conditions << normalize_conditions(model, row_conditions)
             assigns << row_assigns.stringify_keys
           end
         end
@@ -43,7 +43,7 @@ module ActiveRecord::UpdateInBulk
         [conditions, assigns]
       end
 
-      def apply_formula(formula, lhs, rhs)
+      def apply_formula(formula, lhs, rhs, model)
         case formula
         when "add"
           Arel::Nodes::InfixOperation.new("+", lhs, rhs)
@@ -57,8 +57,25 @@ module ActiveRecord::UpdateInBulk
           Arel::Nodes::Least.new([lhs, rhs])
         when "max"
           Arel::Nodes::Greatest.new([lhs, rhs])
+        when Proc
+          node = apply_proc_formula(formula, lhs, rhs, model)
+          unless Arel.arel_node?(node)
+            raise ArgumentError, "Custom formula must return an Arel node"
+          end
+          node
         else
           rhs
+        end
+      end
+
+      def apply_proc_formula(formula, lhs, rhs, model)
+        case formula.arity
+        when 2
+          formula.call(lhs, rhs)
+        when 3
+          formula.call(lhs, rhs, model)
+        else
+          raise ArgumentError, "Custom formula must accept 2 or 3 arguments"
         end
       end
 
@@ -109,6 +126,7 @@ module ActiveRecord::UpdateInBulk
     end
 
     def build_arel
+      table = model.arel_table
       types = (read_keys | write_keys).index_with { |key| model.type_for_attribute(key) }
 
       rows = serialize_values_rows do |key, value|
@@ -124,19 +142,19 @@ module ActiveRecord::UpdateInBulk
       end
 
       join_conditions = read_keys.map.with_index do |key, index|
-        model.arel_table[key].eq(values_table[index])
+        table[key].eq(values_table[index])
       end
       set_assignments = write_keys.map.with_index do |key, index|
         formula = @formulas[key]
-        lhs = model.arel_table[key]
+        lhs = table[key]
         rhs = values_table[index + read_keys.size]
-        rhs = self.class.apply_formula(formula, lhs, rhs) if formula
+        rhs = self.class.apply_formula(formula, lhs, rhs, model) if formula
         if function = bitmask_functions[key]
-          rhs = Arel::Nodes::Case.new(function).when("1").then(rhs).else(model.arel_table[key])
+          rhs = Arel::Nodes::Case.new(function).when("1").then(rhs).else(table[key])
         elsif optional_keys.include?(key)
-          rhs = model.arel_table.coalesce(rhs, model.arel_table[key])
+          rhs = table.coalesce(rhs, table[key])
         end
-        [model.arel_table[key], rhs]
+        [table[key], rhs]
       end
       set_assignments += timestamp_assignments(set_assignments) if timestamp_keys.any?
 
@@ -265,9 +283,9 @@ module ActiveRecord::UpdateInBulk
         return {} if formulas.blank?
 
         normalized = formulas.to_h do |key, value|
-          [key.to_s, value.to_s]
+          [key.to_s, value.is_a?(Proc) ? value : value.to_s]
         end
-        invalid = normalized.values - FORMULAS
+        invalid = normalized.values.reject { |v| v.is_a?(Proc) } - FORMULAS
         if invalid.any?
           raise ArgumentError, "Unknown formula: #{invalid.first.inspect}"
         end

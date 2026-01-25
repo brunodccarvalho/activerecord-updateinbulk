@@ -1,5 +1,8 @@
 david:
   name: David
+  <% if ActiveRecord::Base.connection.supports_json? %>
+  notifications: ["Welcome"]
+  <% end %>
 
 joao:
   name: Joao
@@ -10,4 +13,23 @@ joao:
     languages: [pt, en]
     theme: dark
     plan: 30
+  notifications: ["Primeira", "Segunda"]
+  <% end %>
+
+albert:
+  name: Albert
+  <% if ActiveRecord::Base.connection.supports_json? %>
+  notifications: ["One", "Two", "Three"]
+  <% end %>
+
+bernard:
+  name: Bernard
+  <% if ActiveRecord::Base.connection.supports_json? %>
+  notifications: ["One", "Two", "Three", "Four", "Five"]
+  <% end %>
+
+carol:
+  name: Carol
+  <% if ActiveRecord::Base.connection.supports_json? %>
+  notifications: ["One", "Two", "Three", "Four", "Five", "Six"]
   <% end %>

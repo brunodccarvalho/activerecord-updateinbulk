@@ -11,6 +11,7 @@ ActiveRecord::Schema.define do
     t.string :name
     t.string :settings, null: true, limit: 1024
     t.json :preferences
+    t.json :notifications
   end
 
   create_table :authors, force: true do |t|

@@ -362,6 +362,92 @@ class UpdateInBulkTest < TestCase
     end
   end
 
+  def test_update_in_bulk_custom_formula_proc_arity_2
+    add_proc = lambda do |lhs, rhs|
+      Arel::Nodes::InfixOperation.new("+", lhs, rhs)
+    end
+
+    ProductStock.update_in_bulk({
+      "Tree" => { quantity: 5 },
+      "Toy train" => { quantity: 3 }
+    }, formulas: { quantity: add_proc })
+
+    assert_equal 15, ProductStock.find("Tree").quantity
+    assert_equal 13, ProductStock.find("Toy train").quantity
+  end
+
+  def test_update_in_bulk_custom_formula_proc_arity_3
+    concat_proc = lambda do |lhs, rhs, model|
+      Arel::Nodes::Concat.new(model.arel_table[:name], rhs)
+    end
+
+    Book.update_in_bulk({
+      1 => { name: " (custom)" },
+      2 => { name: " (custom)" }
+    }, formulas: { name: concat_proc })
+
+    assert_equal "Agile Web Development with Rails (custom)", Book.find(1).name
+    assert_equal "Ruby for Rails (custom)", Book.find(2).name
+  end
+
+  def test_update_in_bulk_custom_formula_proc_wrong_arity
+    bad_proc = lambda { |lhs| lhs }
+
+    assert_raises(ArgumentError) do
+      Book.update_in_bulk({ 1 => { name: "Updated Book 1" } }, formulas: { name: bad_proc })
+    end
+  end
+
+  def test_update_in_bulk_custom_formula_proc_invalid_return
+    bad_proc = lambda do |lhs, rhs|
+      "not an arel node"
+    end
+
+    assert_raises(ArgumentError) do
+      Book.update_in_bulk({ 1 => { name: "Updated Book 1" } }, formulas: { name: bad_proc })
+    end
+  end
+
+  def test_update_in_bulk_custom_formula_proc_with_optional_columns
+    concat_proc = lambda do |lhs, rhs|
+      Arel::Nodes::Concat.new(lhs, rhs)
+    end
+
+    Book.update_in_bulk({
+      1 => { name: " X" },
+      2 => { pages: 7 }
+    }, formulas: { name: concat_proc })
+
+    assert_equal "Agile Web Development with Rails X", Book.find(1).name
+    assert_equal "Ruby for Rails", Book.find(2).name
+  end
+
+  def test_update_in_bulk_custom_formula_proc_json_append
+    skip unless json_array_append_proc
+
+    User.update_in_bulk([
+      [{ name: "David" }, { notifications: "Second" }],
+      [{ name: "Joao" }, { notifications: "Third" }]
+    ], formulas: { notifications: json_array_append_proc })
+
+    assert_equal ["Second", "Welcome"], User.find_by(name: "David").notifications
+    assert_equal ["Third", "Primeira", "Segunda"], User.find_by(name: "Joao").notifications
+  end
+
+  def test_update_in_bulk_custom_formula_proc_json_rotating_prepend
+    skip unless json_array_rotating_prepend_proc
+
+    User.update_in_bulk([
+      [{ name: "Albert" }, { notifications: "Hello" }],
+      [{ name: "Bernard" }, { notifications: "Hello" }],
+      [{ name: "Carol" }, { notifications: "Hello" }]
+    ], formulas: { notifications: json_array_rotating_prepend_proc })
+
+    assert_equal ["Hello", "One", "Two", "Three"], User.find_by(name: "Albert").notifications
+    assert_equal ["Hello", "One", "Two", "Three", "Four"], User.find_by(name: "Bernard").notifications
+    assert_equal ["Hello", "One", "Two", "Three", "Four"], User.find_by(name: "Carol").notifications
+  end
+
   def test_update_in_bulk_rejects_subtract_below_zero
     assert_equal [10], ProductStock.where(name: ["Tree", "Toy train", "Toy car"]).pluck(:quantity).uniq
 
@@ -757,5 +843,52 @@ class UpdateInBulkTest < TestCase
       else
         yield
       end
+    end
+
+    def json_array_append_proc
+      return unless ActiveRecord::Base.connection.supports_json?
+
+      @json_array_append_proc ||= if current_adapter?(:PostgreSQLAdapter)
+        lambda do |lhs, rhs, model|
+          lhs_sql = arel_sql(lhs, model.connection)
+          rhs_sql = arel_sql(rhs, model.connection)
+          Arel.sql("jsonb_build_array(#{rhs_sql}) || COALESCE(#{lhs_sql}::jsonb, '[]'::jsonb)")
+        end
+      elsif current_adapter?(:Mysql2Adapter, :TrilogyAdapter)
+        lambda do |lhs, rhs, model|
+          lhs_sql = arel_sql(lhs, model.connection)
+          rhs_sql = arel_sql(rhs, model.connection)
+          Arel.sql("JSON_ARRAY_INSERT(COALESCE(#{lhs_sql}, JSON_ARRAY()), '$[0]', JSON_EXTRACT(#{rhs_sql}, '$'))")
+        end
+      end
+    end
+
+    def json_array_rotating_prepend_proc
+      return unless ActiveRecord::Base.connection.supports_json?
+
+      @json_array_rotating_prepend_proc ||= if current_adapter?(:PostgreSQLAdapter)
+        lambda do |lhs, rhs, model|
+          lhs_sql = arel_sql(lhs, model.connection)
+          rhs_sql = arel_sql(rhs, model.connection)
+          Arel.sql(<<~SQL.squish)
+            (SELECT jsonb_agg(elem)
+             FROM jsonb_array_elements(jsonb_build_array(#{rhs_sql}) || COALESCE(#{lhs_sql}::jsonb, '[]'::jsonb))
+             WITH ORDINALITY AS t(elem, idx)
+             WHERE idx <= 5)
+          SQL
+        end
+      elsif current_adapter?(:Mysql2Adapter, :TrilogyAdapter)
+        lambda do |lhs, rhs, model|
+          lhs_sql = arel_sql(lhs, model.connection)
+          rhs_sql = arel_sql(rhs, model.connection)
+          Arel.sql("JSON_EXTRACT(JSON_ARRAY_INSERT(COALESCE(#{lhs_sql}, JSON_ARRAY()), '$[0]', JSON_EXTRACT(#{rhs_sql}, '$')), '$[0 to 4]')")
+        end
+      end
+    end
+
+    def arel_sql(node, connection)
+      visitor = Arel::Visitors::ToSql.new(connection)
+      collector = Arel::Collectors::SQLString.new
+      visitor.accept(node, collector).value
     end
 end
