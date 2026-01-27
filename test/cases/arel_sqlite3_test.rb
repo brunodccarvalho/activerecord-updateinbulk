@@ -1,0 +1,71 @@
+# frozen_string_literal: true
+
+require "test_helper"
+
+class ArelSqlite3Test < TestCase
+  def setup
+    skip unless current_adapter?(:SQLite3Adapter)
+    @connection = ActiveRecord::Base.connection
+  end
+
+  def test_values_table_sql_without_columns
+    table = Arel::Nodes::ValuesTable.new(:data, [[1, "one"], [2, "two"]])
+    sql = to_sql(table)
+
+    assert_equal "VALUES (1, 'one'), (2, 'two')", sql
+  end
+
+  def test_values_table_sql_with_columns
+    table = Arel::Nodes::ValuesTable.new(:data, [[1, "one"], [2, "two"]], columns: %w[first second])
+    sql = to_sql(table)
+
+    expected = "SELECT 1 #{q("first")}, 'one' #{q("second")} UNION ALL VALUES (2, 'two')"
+    assert_equal expected, sql
+  end
+
+  def test_values_table_sql_with_sql_literal_row
+    table = Arel::Nodes::ValuesTable.new(:data, [[Arel.sql("CURRENT_TIMESTAMP"), 7]], columns: %w[created_at count])
+    sql = to_sql(table)
+
+    expected = "SELECT CURRENT_TIMESTAMP #{q("created_at")}, 7 #{q("count")}"
+    assert_equal expected, sql
+  end
+
+  def test_least_sql
+    books = Book.arel_table
+    node = Arel::Nodes::Least.new([books[:id], books[:pages]])
+    sql = to_sql(node)
+
+    expected = "MIN(#{q("books")}.#{q("id")}, #{q("books")}.#{q("pages")})"
+    assert_equal expected, sql
+  end
+
+  def test_greatest_sql
+    books = Book.arel_table
+    node = Arel::Nodes::Greatest.new([books[:id], books[:pages]])
+    sql = to_sql(node)
+
+    expected = "MAX(#{q("books")}.#{q("id")}, #{q("books")}.#{q("pages")})"
+    assert_equal expected, sql
+  end
+
+  def test_least_with_literal_and_attribute
+    books = Book.arel_table
+    node = Arel::Nodes::Least.new([1000, books[:pages]])
+    sql = to_sql(node)
+
+    expected = "MIN(1000, #{q("books")}.#{q("pages")})"
+    assert_equal expected, sql
+  end
+
+  private
+    def q(name)
+      @connection.quote_column_name(name)
+    end
+
+    def to_sql(node)
+      visitor = Arel::Visitors::SQLite.new(@connection)
+      collector = Arel::Collectors::SQLString.new
+      visitor.accept(node, collector).value
+    end
+end
