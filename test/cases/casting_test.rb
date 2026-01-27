@@ -117,7 +117,7 @@ class CastingTest < TestCase
 
     long_string = "x" * 20
 
-    assert_raises(ActiveRecord::ValueTooLong) do
+    assert_raises(value_too_long_violation_type) do
       TypeVariety.update_in_bulk({ 1 => { col_varchar: long_string } })
     end
   end

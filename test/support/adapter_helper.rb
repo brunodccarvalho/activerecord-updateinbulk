@@ -18,8 +18,11 @@ module TestSupport
     end
 
     def value_too_long_violation_type
-      if ActiveRecord::Base.connection.adapter_name == "SQLite"
+      case ActiveRecord::Base.connection.adapter_name
+      when "SQLite"
         ActiveRecord::CheckViolation
+      when "Mysql2", "Trilogy"
+        ActiveRecord::StatementInvalid
       else
         ActiveRecord::ValueTooLong
       end
