@@ -7,6 +7,8 @@ module ActiveRecord::UpdateInBulk
     FORMULAS = %w[add subtract concat_append concat_prepend min max].freeze
 
     class << self
+      attr_accessor :values_table_name
+
       # Normalize all input formats into separated format [conditions, assigns].
       def normalize_updates(model, updates, values = nil)
         conditions = []
@@ -110,6 +112,7 @@ module ActiveRecord::UpdateInBulk
           end
         end
     end
+    self.values_table_name = "__active_record_bulk"
 
     attr_reader :model, :connection
 
@@ -135,7 +138,7 @@ module ActiveRecord::UpdateInBulk
       end
       append_bitmask_column(rows) unless bitmask_keys.empty?
 
-      values_table = Arel::Nodes::ValuesTable.new("__active_record_bulk", rows)
+      values_table = Arel::Nodes::ValuesTable.new(self.class.values_table_name, rows)
 
       bitmask_functions = bitmask_keys.index_with.with_index(1) do |key, index|
         Arel::Nodes::NamedFunction.new("SUBSTRING", [values_table[-1], index, 1])
@@ -159,7 +162,7 @@ module ActiveRecord::UpdateInBulk
       set_assignments += timestamp_assignments(set_assignments) if timestamp_keys.any?
 
       model_types = read_keys.to_a.concat(write_keys.to_a).map! { |key| columns_hash.fetch(key) }
-      derived_table = connection.typecast_values_table(values_table, model_types).alias("__active_record_bulk")
+      derived_table = connection.typecast_values_table(values_table, model_types).alias(self.class.values_table_name)
 
       [derived_table, join_conditions, set_assignments]
     end
