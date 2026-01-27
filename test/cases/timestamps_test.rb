@@ -9,12 +9,10 @@ class TimestampsTest < TestCase
   def setup
     Arel::Table.engine = nil # should not rely on the global Arel::Table.engine
     Book.record_timestamps = false
-    ActiveRecord::UpdateInBulk::Builder.values_table_name = "t"
   end
 
   def teardown
     Book.record_timestamps = true
-    ActiveRecord::UpdateInBulk::Builder.values_table_name = "__active_record_bulk"
   end
 
   def test_timestamp_case_expression_is_grouped

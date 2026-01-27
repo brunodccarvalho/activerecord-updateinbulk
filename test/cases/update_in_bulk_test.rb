@@ -8,11 +8,6 @@ class UpdateInBulkTest < TestCase
 
   def setup
     Arel::Table.engine = nil # should not rely on the global Arel::Table.engine
-    ActiveRecord::UpdateInBulk::Builder.values_table_name = "t"
-  end
-
-  def teardown
-    ActiveRecord::UpdateInBulk::Builder.values_table_name = "__active_record_bulk"
   end
 
   def test_paired_format

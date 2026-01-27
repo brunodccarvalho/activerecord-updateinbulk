@@ -5,3 +5,5 @@ require "active_support/lazy_load_hooks"
 ActiveSupport.on_load(:active_record) do
   require "activerecord-updateinbulk/base"
 end
+
+require "activerecord-updateinbulk/railtie" if defined?(Rails::Railtie)
