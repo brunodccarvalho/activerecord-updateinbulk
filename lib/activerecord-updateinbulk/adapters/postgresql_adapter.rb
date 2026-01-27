@@ -28,7 +28,8 @@ module ActiveRecord::UpdateInBulk
       aliases = values_table.columns || []
       values_table = Arel::Nodes::ValuesTable.new(values_table.name, values_table.rows)
 
-      values_table.from(nil).project((0...values_table.width).map do |index|
+      # from("t") is not required in postgres 16+, can be from(nil)
+      values_table.from("t").project((0...values_table.width).map do |index|
         proj = Arel::Nodes::UnqualifiedColumn.new(values_table[index])
         proj = proj.cast(proj, Arel.sql(types[index])) if types[index]
         proj = proj.as(Arel::Nodes::UnqualifiedColumn.new(aliases[index])) if aliases[index]
