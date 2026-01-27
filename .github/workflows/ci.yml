@@ -28,10 +28,14 @@ jobs:
       - run: bundle exec rake test:sqlite3
 
   postgresql:
+    name: postgresql:${{ matrix.postgres }}
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        postgres: ["15", "latest"]
     services:
       postgres:
-        image: postgres:18
+        image: postgres:${{ matrix.postgres }}
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -56,10 +60,14 @@ jobs:
       - run: bundle exec rake test:postgresql
 
   mysql:
+    name: mysql:${{ matrix.mysql }}
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        mysql: ["8.0", "8.4", "latest"]
     services:
       mysql:
-        image: mysql:8.4
+        image: mysql:${{ matrix.mysql }}
         env:
           MYSQL_ROOT_PASSWORD: mysql
           MYSQL_DATABASE: activerecord_updateinbulk_test
@@ -84,10 +92,14 @@ jobs:
       - run: bundle exec rake test:trilogy
 
   mariadb:
+    name: mariadb:${{ matrix.mariadb }}
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        mariadb: ["11", "latest"]
     services:
       mariadb:
-        image: mariadb:12.1
+        image: mariadb:${{ matrix.mariadb }}
         env:
           MARIADB_ROOT_PASSWORD: mysql
           MARIADB_DATABASE: activerecord_updateinbulk_test

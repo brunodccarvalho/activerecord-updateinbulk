@@ -1,6 +1,6 @@
 services:
   mysql:
-    image: mysql:8.4
+    image: mysql:latest
     environment:
       MYSQL_ROOT_PASSWORD: mysql
       MYSQL_DATABASE: activerecord_updateinbulk_test
@@ -13,7 +13,7 @@ services:
       retries: 10
 
   mariadb:
-    image: mariadb:12.1
+    image: mariadb:latest
     environment:
       MARIADB_ROOT_PASSWORD: mariadb
       MARIADB_DATABASE: activerecord_updateinbulk_test
@@ -26,7 +26,7 @@ services:
       retries: 10
 
   postgres:
-    image: postgres:16
+    image: postgres:latest
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
