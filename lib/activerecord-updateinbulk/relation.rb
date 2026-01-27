@@ -3,12 +3,12 @@
 module ActiveRecord::UpdateInBulk
   module Relation
     def update_in_bulk(updates, values = nil, record_timestamps: nil, formulas: nil)
-      conditions, assigns = Builder.normalize_updates(model, updates, values)
-      return 0 if @none || conditions.empty?
-
       unless limit_value.nil? && offset_value.nil? && order_values.empty? && group_values.empty? && having_clause.empty?
         raise NotImplementedError, "No support to update grouped or ordered relations (offset, limit, order, group, having clauses)"
       end
+
+      conditions, assigns = Builder.normalize_updates(model, updates, values)
+      return 0 if @none || conditions.empty?
 
       model.with_connection do |c|
         unless c.supports_values_tables?
