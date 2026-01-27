@@ -86,3 +86,35 @@ end
 
 class ProductStock < ActiveRecord::Base
 end
+
+class TypeVariety < ActiveRecord::Base
+  def string_values
+    [col_string, col_varchar, col_char, col_text].map { |v| v || "-" }.join(" ")
+  end
+
+  def integer_values
+    [col_integer, col_smallint, col_bigint].map { |v| v&.to_s || "-" }.join(" ")
+  end
+
+  def numeric_values
+    float_s = col_float ? format("%.2f", col_float) : "-"
+    decimal_s = col_decimal&.to_s("F") || "-"
+    "#{float_s} #{decimal_s}"
+  end
+
+  def temporal_values
+    date_s = col_date&.to_s || "-"
+    datetime_s = col_datetime&.strftime("%Y-%m-%d %H:%M") || "-"
+    time_s = col_time&.strftime("%H:%M") || "-"
+    "#{date_s} #{datetime_s} #{time_s}"
+  end
+
+  def all_values
+    bool_s = col_boolean.nil? ? "-" : col_boolean.to_s
+    "#{string_values} #{integer_values} #{numeric_values} #{temporal_values} #{bool_s}"
+  end
+
+  def self.all_nil
+    "- - - - - - - - - - - - -"
+  end
+end

@@ -1,0 +1,31 @@
+one:
+  id: 1
+  col_string: "alpha"
+  col_varchar: "short_a"
+  col_char: "char_a"
+  col_text: "text alpha"
+  col_integer: 10
+  col_smallint: 1
+  col_bigint: 1099511627776
+  col_float: 1.5
+  col_decimal: 10.50
+  col_date: "2025-01-15"
+  col_datetime: "2025-01-15 09:00:00"
+  col_time: "09:00:00"
+  col_boolean: true
+
+two:
+  id: 2
+  col_string: "beta"
+  col_varchar: "short_b"
+  col_char: "char_b"
+  col_text: "text beta"
+  col_integer: 20
+  col_smallint: 2
+  col_bigint: 2199023255552
+  col_float: 2.5
+  col_decimal: 20.75
+  col_date: "2025-06-30"
+  col_datetime: "2025-06-30 18:30:00"
+  col_time: "18:30:00"
+  col_boolean: false
