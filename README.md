@@ -1,12 +1,14 @@
 # ActiveRecord Update in Bulk
 
-`ActiveRecord::Relation#update_in_bulk` updates many records with different values in *one* SQL UPDATE statement.
-It avoids N individual UPDATEs and avoids large CASE-based statements by joining against a `VALUES` table
-that carries both the matching keys used in the inner join and the new values.
+Introduces ``Relation#update_in_bulk``, a method to update many records in a table with different values in a single SQL statement,
+something traditionally performed with either $N$ consecutive updates or a series of repetitive `CASE` statements.
 
-Like `update_all`, it returns the total number of rows affected.
+The method generates a single `UPDATE` query with an inner join to a handcrafted `VALUES` table constructor holding both row matching _conditions_ and the values to assign to each set of rows matched.
+This construct is available on the latest versions of all databases supported by rails.
 
-Tested with Ruby 3.4 and Rails 8 for all its builtin databases on latest versions.
+Similar to `update_all`, it returns the number of affected rows, and can additionally bump update timestamps.
+
+Tested with Ruby 3.4 and Rails 8 for all builtin databases on latest versions.
 
 ## Installation
 
@@ -16,110 +18,134 @@ gem "activerecord-updateinbulk"
 
 ## Usage
 
-### Formats (interchangeable)
-
 ```ruby
-# Indexed format: Standard syntax when updating records by primary key. Entries can target different columns.
-Book.update_in_bulk({
-  1 => { revision: 10 },
-  2 => { status: :draft },
-  3 => { featured: true }
-})
-Car.update_in_bulk({
-  ["Toyota", "Camry"] => { owner: "Albert" },
-  ["Honda", "Civic"] => { owenr: "Bernard" }
+# Indexed format: hash of primary key => attributes to update.
+Employee.update_in_bulk({
+  1 => { salary: 75_000, title: "Software engineer" },
+  2 => { title: "Claude prompter" },
+  3 => { salary: 68_000 }
 })
 
-# Paired format: array of pairs [match keys, assigns]
-Book.update_in_bulk([
-  [{ author_id: 1 }, { featured: true }],
-  [{ author_id: 2 }, { featured: false }]
+# Composite primary keys work as well.
+FlightSeat.update_in_bulk({
+  ["AA100", "12A"] => { passenger: "Alice" },
+  ["AA100", "12B"] => { passenger: "Bob" }
+})
+
+# Paired format: array of [conditions, assigns] pairs.
+# Conditions don't have to be primary keys, they can refer to any columns in the target table.
+Employee.update_in_bulk([
+  [{ department: "Sales" },       { bonus: 2500 }],
+  [{ department: "Engineering" }, { bonus: 500 }]
 ])
 
-# Separated format: parallel arrays for match keys and assign values
-Book.update_in_bulk(
-  [1, 2],
-  [{ name: "Revised Volume One" }, { name: "Revised Volume Two" }]
+# Separated format: parallel arrays of conditions and assigns.
+# Primary key conditions can be given in their natural form.
+Employee.update_in_bulk(
+  [1, 2, { id: 3 }],
+  [{ salary: 75_000, title: "Software engineer" }, { title: "Claude prompter" }, { salary: 68_000 }]
 )
 ```
-
-The matching keys (_conditions_) can be given in compressed formats when they refer to the primary key:
-- `[id1, id2, ...]` (implicit primary key)
-- `[[id1p1, id1p2], [id2p1, id2p2], ...]` (implicit composite primary key)
-- `[{ id: id1 }, { id: id2 }, ...]` (explicit conditions, not necessarily primary keys)
 
 ### Relation scoping
 
 Relation constraints are preserved, including joins:
 
 ```ruby
-# Make books 1 and 2 featured - but only if they're already published
-Book.joins(:publication_issues).where(published: true).update_in_bulk({
-  1 => { featured: true },
-  2 => { featured: true }
+# Only adjust salaries for currently active employees.
+Employee.where(active: true).update_in_bulk([
+  [{ department: "Sales" },       { bonus: 2500 }],
+  [{ department: "Engineering" }, { bonus: 500 }]
+])
+
+# Joins work too - update orders that have at least one shipped item.
+Order.joins(:items).where(items: { status: :shipped }).update_in_bulk({
+  10 => { status: :fulfilled },
+  11 => { status: :fulfilled }
 })
 ```
 
 ### Record timestamps
 
 By default `update_in_bulk` implicitly bumps update timestamps similar to `upsert_all`.
-- If the model has `updated_at`/`updated_on`, these are bumped **iff the row actually changed**.
+- If the model has `updated_at`/`updated_on`, these are bumped *iff the row actually changed*.
 - Passing `record_timestamps: false` can disable bumping the update timestamps for the query.
 - The `updated_at` columns can also be manually assigned, this disables the implicit bump behaviour.
 
 ```ruby
-Book.where(published: true).update_in_bulk([
-  [{ author_id: 1 }, { featured: true }],
-  [{ author_id: 2 }, { featured: false }]
-], record_timestamps: false)
+Employee.update_in_bulk({
+  1 => { department: "Engineering" },
+  2 => { department: "Sales" }
+}, record_timestamps: false)
 ```
 
 ### Formulas (computed assignments)
 
-In all examples so far the columns are appended with a simple assignment of the value provided.
-Formulas can augment this and compute the new value based on the current row and the incoming value(s) for that row.
+In all examples so far the queries simply assign predetermined values to rows matched, irrespective of their previous values.
+
+Formulas can augment this in the predictable way of letting you set a custom expression for the assignment, where the new value can be based on the state of current row, the incoming value(s) for that row, and even values in other tables joined in.
 
 ```ruby
-# Subtract 5/3 quantity from two product_stocks rows simultaneously.
-ProductStock.update_in_bulk({
-  12 => { quantity: 5 },
-  34 => { quantity: 3 }
+# Fulfill an order: subtract different quantities from each product stock in one statement.
+Inventory.update_in_bulk({
+  "Christmas balls" => { quantity: 73 },
+  "Christmas tree"  => { quantity: 1 }
 }, formulas: { quantity: :subtract })
-# Generates SQL like: product_stocks.quantity = product_stocks.quantity - values.quantity
+# Generates: inventories.quantity = inventories.quantity - t.column2
 ```
 
 Built-in formulas:
 - `:add :subtract :min :max :concat_append :concat_prepend`
 
 Custom formulas are supported by providing a `Proc`. The proc takes `(lhs,rhs,model)` and must return an **Arel node**.
-Here `lhs` and `rhs` are instances of `Arel::Attribute` and corresponds to the target table and values table respectively.
-You can read other values in each table for example like `lhs.relation["other"]`
+Here `lhs` and `rhs` are instances of `Arel::Attribute` corresponding to the target table and values table respectively.
 
 ```ruby
-# Add some product stock, but don't let it go over 1000.
-# Library adds Arel::Nodes::Least and Arel::Nodes::Greatest to implement builtin :add and :subtract formulas.
-add_capped = lambda do |lhs, rhs, model|
-  Arel::Nodes::Least.new([1000, lhs + rhs])
+# Restock some products, but cap inventory at some maximum amount.
+# LEAST(metadata.max_stock, inventories.quantity + t.quantity)
+add_capped = proc |lhs, rhs| do
+  Arel::Nodes::Least.new([Arel::Attribute.new("metadata", "max_stock"), lhs + rhs])
 end
-
-ProductStock.update_in_bulk({
-  12 => { quantity: 5 },
-  34 => { quantity: 3 }
+Inventory.joins(:metadata).update_in_bulk({
+  "Christmas balls" => { quantity: 300 },
+  "Christmas tree"  => { quantity: 10 }
 }, formulas: { quantity: add_capped })
 ```
 
-## Notes and limitations
+## Notes
 
-- All conditions must use the same keys since they are used in inner join of the query with simple equality.
-- For the same reason the conditions should not have NULL values, which won't match any rows.
-- Each entry must assign at least one column; empty assigns are discarded.
-- Conditions and assigns must reference real columns on the target table. Virtual assign columns (for use with formulas) are not implemented.
-- The update is single-shot in any compliant database:
-  - either all rows matched are updated or none are (which may occur if there is a calculation error, or a check/unique constraint violation).
-  - rows earlier in the statement do not affect later rows.
-- The implementation does not automatically batch unreasonably large `UPDATE` queries.
-  - The size of the `VALUES` table is `rows * columns` when all rows assign to the same columns,
-    or `rows * (distinct_columns + 1)` when the assign columns are not uniform (an extra bitmask indicator column is used).
+Running `EXPLAIN` on the database engines indicates they do run these queries as one would expect, using the correct index based on the join condition, but there are no tests or benchmarks for this yet.
+
+Given the nature of the query being an inner join with the condition columns, all conditions must use the same keys, and they should not have _NULL_ values, which won't match any rows.
+
+Conditions and assigns must reference actual columns on the target table. Virtual columns for use with formulas are not implemented (requires explicit casting interface to be usable in postgres).
+
+The `UPDATE` is single-shot in any compliant database:
+- Either all rows matched are updated or none are.
+- Errors may occur for any of the usual reasons: a calculation error, or a check/unique constraint violation.
+- This mechanic can be used to design a query that purposely updates zero rows if it fails to update any of them, something which usually requires a transaction.
+- Rows earlier in the statement do not affect later rows - the updates are not 'chained' or 'consecutive'.
+
+## Limitations
+
+There is no support for `ORDER BY`, `LIMIT`, `OFFSET`, `GROUP` or `HAVING` clauses in the relation.
+
+The implementation does not automatically batch (nor reject) impermissibly large queries. The size of the `VALUES` table is `rows * columns` when all rows assign to the same columns, or `rows * (distinct_columns + 1)` when the assign columns are not uniform (an extra bitmask indicator column is used).
+
+## Examples
+
+The query's skeleton looks like this:
+```sql
+--- postgres
+UPDATE "books" SET "name" = "t"."column2"
+FROM "books" INNER JOIN (VALUES (1, 'Agile'), (2, 'Web'), ...) "t" ON "books"."id" = "t"."column1"
+WHERE ...
+```
+
+Example use cases:
+- Offset `position` in a set of many ordered records after an element is added or removed from the middle of the list.
+- Decrement (or increment) `stock` or `balance` simultaneously in multiple rows by different amounts, noop-ing if any value would go outside permissible bounds. => add/subtract formula with database types or check constraints
+
 
 ## Testing & Development
 

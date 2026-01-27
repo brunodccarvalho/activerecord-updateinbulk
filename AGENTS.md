@@ -15,11 +15,11 @@ There is database-specific SQL generation and a dedicated test suite.
 `update_in_bulk` accepts multiple input formats that are interchangeable. Currently implemented formats:
 
 - Indexed format (keys are primary keys):
-  `Book.update_in_bulk({ 1 => { name: "Updated Book 1" }, 2 => { name: "Updated Book 2" } }, ...)`
+  `Book.update_in_bulk({ 1 => { name: "Agil" }, 2 => { name: "Web" } }, ...)`
 - Paired format (each element is `[conditions, assigns]`):
-  `Book.update_in_bulk([[1, { name: "Updated Book 1" }], [2, { name: "Updated Book 2" }]], ...)`
+  `Book.update_in_bulk([[1, { name: "Agil" }], [2, { name: "Web" }]], ...)`
 - Separated format:
-  `Book.update_in_bulk([1, 2], [{ name: "Updated Book 1" }, { name: "Updated Book 2" }], ...)`
+  `Book.update_in_bulk([1, 2], [{ name: "Agil" }, { name: "Web" }], ...)`
 
 Conditions may be specified in multiple ways as well. For example for the separated format:
 - `[id1, id2, ...]` (implicit primary key)
@@ -37,9 +37,17 @@ The Builder's validations apply equally to all formats:
 ### Query shape (illustrative)
 
 ```sql
---- mysql style
-UPDATE books INNER JOIN (VALUES (1,'albert'), (2,'bernard'), (3,'carol')) values_table ON books.id = values_table.column1
-SET books.name = values_table.column2 WHERE ...
+--- mysql
+UPDATE `books` INNER JOIN (SELECT 1 `column1`, 'Scrum Development' `column2` UNION ALL VALUES ROW(2, 'Django for noobies'), ROW(3, 'Data-Driven Design')) `t` ON `books`.`id` = `t`.`column1` SET `books`.`name` = `t`.`column2`;
+
+--- mariadb
+UPDATE `books` INNER JOIN (SELECT 1 `column1`, 'Scrum Development' `column2` UNION ALL VALUES (2, 'Django for noobies'), (3, 'Data-Driven Design')) `t` ON `books`.`id` = `t`.`column1` SET `books`.`name` = `t`.`column2`;
+
+--- postgresql
+UPDATE "books" "alias" SET "name" = "t"."column2" FROM "books" INNER JOIN (VALUES (1, 'Scrum Development'), (2, 'Django for noobies'), (3, 'Data-Driven Design')) "t" ON "books"."id" = "t"."column1" WHERE "books"."id" = "alias"."id";
+
+--- sqlite3
+UPDATE "books" AS "__active_record_update_alias" SET "name" = "t"."column2" FROM "books" INNER JOIN (VALUES (1, 'Scrum Development'), (2, 'Django for noobies'), (3, 'Data-Driven Design')) AS "t" ON "books"."id" = "t"."column1" WHERE "books"."id" = "__active_record_update_alias"."id";
 ```
 
 ## Important observations specific to the problem the project solves
