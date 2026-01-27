@@ -12,5 +12,4 @@ vendor/bundle/
 .bundle/
 
 # Agents
-AGENTS.md
 CLAUDE.md
