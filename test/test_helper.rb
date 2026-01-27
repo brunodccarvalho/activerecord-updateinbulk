@@ -15,7 +15,6 @@ require_relative "support/test_case"
 
 adapter = TestSupport::DatabaseConfig.adapter
 
-require "activerecord-updateinbulk"
 
 ActiveRecord::Base.establish_connection(TestSupport::DatabaseConfig.config_for(adapter))
 TestSupport::SchemaLoader.apply_schema!(adapter: adapter)

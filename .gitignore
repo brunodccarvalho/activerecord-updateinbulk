@@ -8,6 +8,8 @@ Thumbs.db
 .vscode/
 *.log
 .byebug_history
+vendor/bundle/
+.bundle/
 
 # Agents
 AGENTS.md
