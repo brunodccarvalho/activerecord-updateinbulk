@@ -84,27 +84,22 @@ ActiveRecord::Schema.define do
   end
 
   create_table :type_varieties, force: true do |t|
-    # string family
     t.string  :col_string
     t.string  :col_varchar, limit: 16
     t.column  :col_char, :string, limit: 16
     t.text    :col_text
 
-    # integer family
     t.integer :col_integer
     t.integer :col_smallint, limit: 2
     t.bigint  :col_bigint
 
-    # float/decimal family
     t.float   :col_float
     t.decimal :col_decimal, precision: 10, scale: 2
 
-    # date/time family
     t.date     :col_date
     t.datetime :col_datetime
     t.time     :col_time
 
-    # boolean
     t.boolean :col_boolean
   end
 
