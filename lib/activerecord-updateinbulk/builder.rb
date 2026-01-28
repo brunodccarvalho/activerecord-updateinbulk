@@ -7,7 +7,7 @@ module ActiveRecord::UpdateInBulk
     FORMULAS = %w[add subtract concat_append concat_prepend min max].freeze
 
     class << self
-      attr_accessor :values_table_name, :typecasting_strategy
+      attr_accessor :values_table_name
 
       # Normalize all input formats into separated format [conditions, assigns].
       def normalize_updates(model, updates, values = nil)
@@ -113,7 +113,6 @@ module ActiveRecord::UpdateInBulk
         end
     end
     self.values_table_name = "t"
-    self.typecasting_strategy = :auto
 
     attr_reader :model, :connection
 

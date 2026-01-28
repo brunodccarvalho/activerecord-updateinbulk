@@ -15,16 +15,6 @@ module ActiveRecord
           ActiveRecord::UpdateInBulk::Builder.values_table_name = bulk_alias
         end
       end
-
-      initializer "active_record_update_in_bulk.typecasting_strategy" do |app|
-        if (strategy = app.config.active_record_update_in_bulk.typecasting_strategy)
-          strategy = strategy.to_sym
-          unless %i[auto all].include?(strategy)
-            raise ArgumentError, "Invalid typecasting_strategy #{strategy.inspect}"
-          end
-          ActiveRecord::UpdateInBulk::Builder.typecasting_strategy = strategy
-        end
-      end
     end
   end
 end

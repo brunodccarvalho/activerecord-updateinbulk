@@ -13,10 +13,8 @@ class ArelMysqlTest < TestCase
     sql = to_sql(table)
 
     if @connection.values_table_requires_aliasing?
-      # MariaDB: native column names are unknown, aliasing always required
       assert_equal "SELECT 1 `column1`, 'one' `column2` UNION ALL VALUES (2, 'two')", sql
     else
-      # MySQL: native column names match defaults, bare VALUES emitted
       assert_equal "VALUES ROW(1, 'one'), ROW(2, 'two')", sql
     end
   end
