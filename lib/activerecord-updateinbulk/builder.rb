@@ -139,7 +139,7 @@ module ActiveRecord::UpdateInBulk
       end
       append_bitmask_column(rows) unless bitmask_keys.empty?
 
-      values_table = Arel::Nodes::ValuesTable.new(self.class.values_table_name, rows)
+      values_table = Arel::Nodes::ValuesTable.new(self.class.values_table_name, rows, connection.values_table_default_column_names(rows.first.size))
 
       bitmask_functions = bitmask_keys.index_with.with_index(1) do |key, index|
         Arel::Nodes::NamedFunction.new("SUBSTRING", [values_table[-1], index, 1])

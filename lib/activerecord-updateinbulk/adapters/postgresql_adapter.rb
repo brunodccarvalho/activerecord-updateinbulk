@@ -6,9 +6,6 @@ module ActiveRecord::UpdateInBulk
   module PostgreSQLAdapter
     SAFE_TYPES_FOR_VALUES_TABLE = [:integer, :string, :text, :boolean].freeze
 
-    def values_table_requires_aliasing?
-      false
-    end
 
     def typecast_values_table(values_table, columns)
       types = columns.map.with_index do |column, index|
@@ -25,14 +22,15 @@ module ActiveRecord::UpdateInBulk
 
       return values_table if types.all?(&:nil?)
 
-      aliases = values_table.columns || []
-      values_table = Arel::Nodes::ValuesTable.new(values_table.name, values_table.rows)
+      aliases = values_table.columns
+      default_columns = values_table_default_column_names(values_table.width)
+      values_table = Arel::Nodes::ValuesTable.new(values_table.name, values_table.rows, default_columns)
 
       # from("t") is not required in postgres 16+, can be from(nil)
       values_table.from("t").project((0...values_table.width).map do |index|
         proj = Arel::Nodes::UnqualifiedColumn.new(values_table[index])
         proj = proj.cast(proj, Arel.sql(types[index])) if types[index]
-        proj = proj.as(Arel::Nodes::UnqualifiedColumn.new(aliases[index])) if aliases[index]
+        proj = proj.as(Arel::Nodes::UnqualifiedColumn.new(aliases[index])) if aliases[index] != default_columns[index]
         proj
       end)
     end

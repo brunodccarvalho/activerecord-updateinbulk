@@ -7,18 +7,18 @@ module ActiveRecord
     class Railtie < Rails::Railtie
       config.active_record_update_in_bulk = ActiveSupport::OrderedOptions.new
 
-      initializer "active_record_update_in_bulk.configure" do |app|
-        options = app.config.active_record_update_in_bulk
-
-        if (bulk_alias = options.values_table_alias)
+      initializer "active_record_update_in_bulk.values_table_alias" do |app|
+        if (bulk_alias = app.config.active_record_update_in_bulk.values_table_alias)
           unless bulk_alias.instance_of?(String) && !bulk_alias.empty?
             raise ArgumentError, "values_table_alias must be a non-empty String"
           end
           ActiveRecord::UpdateInBulk::Builder.values_table_name = bulk_alias
         end
+      end
 
-        if options.typecasting_strategy
-          strategy = options.typecasting_strategy.to_sym
+      initializer "active_record_update_in_bulk.typecasting_strategy" do |app|
+        if (strategy = app.config.active_record_update_in_bulk.typecasting_strategy)
+          strategy = strategy.to_sym
           unless %i[auto all].include?(strategy)
             raise ArgumentError, "Invalid typecasting_strategy #{strategy.inspect}"
           end

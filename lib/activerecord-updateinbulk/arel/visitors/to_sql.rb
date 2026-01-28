@@ -17,11 +17,11 @@ module ActiveRecord::UpdateInBulk
     def visit_Arel_Nodes_ValuesTable(o, collector)
       row_prefix = @connection.values_table_row_prefix
 
-      unless @connection.values_table_requires_aliasing? || o.columns
+      if !@connection.values_table_requires_aliasing? && o.columns == @connection.values_table_default_column_names(o.width)
         return build_values_table_constructor(o.rows, collector, row_prefix)
       end
 
-      column_aliases = o.column_aliases_or_default_names
+      column_aliases = o.columns
 
       # Extract the first row into a handrolled SELECT and put the aliases there.
       collector << "SELECT "

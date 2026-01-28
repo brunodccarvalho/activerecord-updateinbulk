@@ -10,9 +10,13 @@ module ActiveRecord::UpdateInBulk
       ""
     end
 
-    # If the defaults' names are column1, column2, ... then aliases are not required.
+    def values_table_default_column_names(width)
+      (1..width).map { |i| "column#{i}" }
+    end
+
+    # Whether the VALUES table sql serialization always requires aliasing.
     def values_table_requires_aliasing?
-      true
+      false
     end
 
     # This is meant to be implemented by the adapters that want to typecast the tables.

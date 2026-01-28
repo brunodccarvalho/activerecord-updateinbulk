@@ -5,21 +5,15 @@ module Arel::Nodes
     attr_reader :name, :width, :rows, :columns
     alias :table_alias :name
 
-    def initialize(name, rows, columns: nil)
+    def initialize(name, rows, columns)
       @name = name.to_s
       @width = rows.first.size
       @rows = rows
-      @columns = columns&.map(&:to_s)
-    end
-
-    # Pick engine-independent default names so that :[] works
-    # and always produces the same column names without aliases
-    def column_aliases_or_default_names
-      @column_aliases_or_default_names ||= @columns || (1..@width).map { |i| "column#{i}" }
+      @columns = columns.map(&:to_s)
     end
 
     def [](name, table = self)
-      name = column_aliases_or_default_names[name] if name.is_a?(Integer)
+      name = columns[name] if name.is_a?(Integer)
       name = name.name if name.is_a?(Symbol)
       Arel::Attribute.new(table, name)
     end
