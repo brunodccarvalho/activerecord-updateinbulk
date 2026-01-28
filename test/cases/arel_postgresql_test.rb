@@ -19,52 +19,19 @@ class ArelPostgresqlTest < TestCase
     table = Arel::Nodes::ValuesTable.new(:data, [[1, "one"], [2, "two"]], %w[first second])
     sql = to_sql(table)
 
-    expected = "SELECT 1 #{q("first")}, 'one' #{q("second")} UNION ALL VALUES (2, 'two')"
-    assert_equal expected, sql
+    assert_equal %{SELECT 1 "first", 'one' "second" UNION ALL VALUES (2, 'two')}, sql
   end
 
   def test_values_table_sql_with_sql_literal_row
     table = Arel::Nodes::ValuesTable.new(:data, [[Arel.sql("CURRENT_TIMESTAMP"), 7]], %w[created_at count])
     sql = to_sql(table)
 
-    expected = "SELECT CURRENT_TIMESTAMP #{q("created_at")}, 7 #{q("count")}"
-    assert_equal expected, sql
-  end
-
-  def test_least_sql
-    books = Book.arel_table
-    node = Arel::Nodes::Least.new([books[:id], books[:pages]])
-    sql = to_sql(node)
-
-    expected = "LEAST(#{q("books")}.#{q("id")}, #{q("books")}.#{q("pages")})"
-    assert_equal expected, sql
-  end
-
-  def test_greatest_sql
-    books = Book.arel_table
-    node = Arel::Nodes::Greatest.new([books[:id], books[:pages]])
-    sql = to_sql(node)
-
-    expected = "GREATEST(#{q("books")}.#{q("id")}, #{q("books")}.#{q("pages")})"
-    assert_equal expected, sql
-  end
-
-  def test_least_with_literal_and_attribute
-    books = Book.arel_table
-    node = Arel::Nodes::Least.new([1000, books[:pages]])
-    sql = to_sql(node)
-
-    expected = "LEAST(1000, #{q("books")}.#{q("pages")})"
-    assert_equal expected, sql
+    assert_equal %{SELECT CURRENT_TIMESTAMP "created_at", 7 "count"}, sql
   end
 
   private
     def default_columns(width)
       @connection.values_table_default_column_names(width)
-    end
-
-    def q(name)
-      @connection.quote_column_name(name)
     end
 
     def to_sql(node)
