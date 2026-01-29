@@ -124,10 +124,11 @@ Formulas are applied in the Builder (Arel) before optional-key handling (CASE/CO
 
 ```bash
 # Docker-based tests (start containers first: docker-compose up -d)
-bundle exec rake test:sqlite3 # PREFERRED: For quick verification of adapter-independent code changes run
-bundle exec rake test:mysql2
-bundle exec rake test:postgresql
-...
+bin/test-docker sqlite3
+bin/test-docker mysql2
+bin/test-docker mariadb
+bin/test-docker postgresql
+bin/test-docker all
 
 # Linting
 bundle exec rubocop
