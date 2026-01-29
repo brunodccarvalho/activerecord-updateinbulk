@@ -129,50 +129,16 @@ module ActiveRecord::UpdateInBulk
     end
 
     def build_arel
-      table = model.arel_table
-      types = (read_keys | write_keys).index_with { |key| model.type_for_attribute(key) }
-
-      rows = serialize_values_rows do |key, value|
-        next value if Arel::Nodes::SqlLiteral === value
-        ActiveModel::Type::SerializeCastValue.serialize(type = types[key], type.cast(value))
-      end
-      append_bitmask_column(rows) unless bitmask_keys.empty?
-
-      values_table = Arel::Nodes::ValuesTable.new(self.class.values_table_name, rows, connection.values_table_default_column_names(rows.first.size))
-
-      bitmask_functions = bitmask_keys.index_with.with_index(1) do |key, index|
-        Arel::Nodes::NamedFunction.new("SUBSTRING", [values_table[-1], index, 1])
-      end
-
-      join_conditions = read_keys.map.with_index do |key, index|
-        table[key].eq(values_table[index])
-      end
-      set_assignments = write_keys.map.with_index do |key, index|
-        formula = @formulas[key]
-        lhs = table[key]
-        rhs = values_table[index + read_keys.size]
-        rhs = self.class.apply_formula(formula, lhs, rhs, model) if formula
-        if function = bitmask_functions[key]
-          rhs = Arel::Nodes::Case.new(function).when("1").then(rhs).else(table[key])
-        elsif optional_keys.include?(key)
-          rhs = table.coalesce(rhs, table[key])
-        end
-        [table[key], rhs]
-      end
-      set_assignments += timestamp_assignments(set_assignments) if timestamp_keys.any?
-
-      model_types = read_keys.to_a.concat(write_keys.to_a).map! { |key| columns_hash.fetch(key) }
-      derived_table = connection.typecast_values_table(values_table, model_types).alias(self.class.values_table_name)
+      values_table, bitmask_keys = build_values_table
+      join_conditions = build_join_conditions(model.arel_table, values_table)
+      set_assignments = build_set_assignments(model.arel_table, values_table, bitmask_keys)
+      derived_table = typecast_values_table(values_table)
 
       [derived_table, join_conditions, set_assignments]
     end
 
     private
-      attr_reader :read_keys, :write_keys, :bitmask_keys
-
-      def columns_hash
-        @columns_hash ||= model.columns_hash
-      end
+      attr_reader :read_keys, :write_keys
 
       def optional_keys
         @optional_keys ||= write_keys - @assigns.map(&:keys).reduce(write_keys, &:intersection)
@@ -180,6 +146,119 @@ module ActiveRecord::UpdateInBulk
 
       def timestamp_keys
         @timestamp_keys ||= @record_timestamps ? model.timestamp_attributes_for_update_in_model.to_set - write_keys : Set.new
+      end
+
+      def build_values_table
+        types = (read_keys | write_keys).index_with { |key| model.type_for_attribute(key) }
+        rows, bitmask_keys = serialize_values_rows do |key, value|
+          next value if Arel::Nodes::SqlLiteral === value
+          ActiveModel::Type::SerializeCastValue.serialize(type = types[key], type.cast(value))
+        end
+        append_bitmask_column(rows, bitmask_keys) unless bitmask_keys.empty?
+        values_table = Arel::Nodes::ValuesTable.new(self.class.values_table_name, rows, connection.values_table_default_column_names(rows.first.size))
+        [values_table, bitmask_keys]
+      end
+
+      def build_join_conditions(table, values_table)
+        read_keys.map.with_index do |key, index|
+          table[key].eq(values_table[index])
+        end
+      end
+
+      def build_set_assignments(table, values_table, bitmask_keys)
+        bitmask_functions = bitmask_keys.index_with.with_index(1) do |key, index|
+          Arel::Nodes::NamedFunction.new("SUBSTRING", [values_table[-1], index, 1])
+        end
+
+        set_assignments = write_keys.map.with_index do |key, index|
+          formula = @formulas[key]
+          lhs = table[key]
+          rhs = values_table[index + read_keys.size]
+          rhs = self.class.apply_formula(formula, lhs, rhs, model) if formula
+          if function = bitmask_functions[key]
+            rhs = Arel::Nodes::Case.new(function).when("1").then(rhs).else(table[key])
+          elsif optional_keys.include?(key)
+            rhs = table.coalesce(rhs, table[key])
+          end
+          [table[key], rhs]
+        end
+
+        if timestamp_keys.any?
+          set_assignments += timestamp_assignments(set_assignments)
+        end
+
+        set_assignments
+      end
+
+      def typecast_values_table(values_table)
+        columns_hash = model.columns_hash
+        model_types = read_keys.to_a.concat(write_keys.to_a).map! { |key| columns_hash.fetch(key) }
+        connection.typecast_values_table(values_table, model_types).alias(self.class.values_table_name)
+      end
+
+      def serialize_values_rows(&)
+        bitmask_keys = Set.new
+
+        rows = @conditions.each_with_index.map do |row_conditions, row_index|
+          row_assigns = @assigns[row_index]
+          condition_values = read_keys.map do |key|
+            yield(key, row_conditions[key])
+          end
+          write_values = write_keys.map do |key|
+            next unless row_assigns.key?(key)
+            value = yield(key, row_assigns[key])
+            bitmask_keys.add(key) if optional_keys.include?(key) && might_be_nil_value?(value)
+            value
+          end
+          condition_values.concat(write_values)
+        end
+
+        [rows, bitmask_keys]
+      end
+
+      def append_bitmask_column(rows, bitmask_keys)
+        rows.each_with_index do |row, row_index|
+          row_assigns = @assigns[row_index]
+          bitmask = "0" * bitmask_keys.size
+          bitmask_keys.each_with_index do |key, index|
+            bitmask[index] = "1" if row_assigns.key?(key)
+          end
+          row.push(bitmask)
+        end
+      end
+
+      def timestamp_assignments(set_assignments)
+        case_conditions = set_assignments.map do |left, right|
+          left.is_not_distinct_from(right)
+        end
+
+        timestamp_keys.map do |key|
+          case_assignment = Arel::Nodes::Case.new.when(Arel::Nodes::And.new(case_conditions))
+                                             .then(model.arel_table[key])
+                                             .else(connection.high_precision_current_timestamp)
+          [model.arel_table[key], Arel::Nodes::Grouping.new(case_assignment)]
+        end
+      end
+
+      def might_be_nil_value?(value)
+        case value
+        when Arel::Nodes::SqlLiteral, Arel::Nodes::BindParam, nil then true
+        when String, Symbol, Numeric, BigDecimal, Date, Time, Hash, Array, true, false then false
+        else true
+        end
+      end
+
+      def normalize_formulas(formulas)
+        return {} if formulas.blank?
+
+        normalized = formulas.to_h do |key, value|
+          [key.to_s, value.is_a?(Proc) ? value : value.to_s]
+        end
+        invalid = normalized.values.reject { |v| v.is_a?(Proc) } - FORMULAS
+        if invalid.any?
+          raise ArgumentError, "Unknown formula: #{invalid.first.inspect}"
+        end
+        normalized
       end
 
       def resolve_attribute_aliases!
@@ -228,71 +307,8 @@ module ActiveRecord::UpdateInBulk
         end
 
         columns = read_keys | write_keys
-        unknown_column = (columns - @model.columns_hash.keys).first
+        unknown_column = (columns - model.columns_hash.keys).first
         raise ActiveRecord::UnknownAttributeError.new(model.new, unknown_column) if unknown_column
-      end
-
-      def serialize_values_rows
-        @bitmask_keys = Set.new
-
-        @conditions.each_with_index.map do |row_conditions, row_index|
-          row_assigns = @assigns[row_index]
-          condition_values = read_keys.map do |key|
-            yield(key, row_conditions[key])
-          end
-          write_values = write_keys.map do |key|
-            next unless row_assigns.key?(key)
-            value = yield(key, row_assigns[key])
-            @bitmask_keys.add(key) if optional_keys.include?(key) && might_be_nil_value?(value)
-            value
-          end
-          condition_values.concat(write_values)
-        end
-      end
-
-      def append_bitmask_column(rows)
-        rows.each_with_index do |row, row_index|
-          row_assigns = @assigns[row_index]
-          bitmask = "0" * bitmask_keys.size
-          bitmask_keys.each_with_index do |key, index|
-            bitmask[index] = "1" if row_assigns.key?(key)
-          end
-          row.push(bitmask)
-        end
-      end
-
-      def timestamp_assignments(set_assignments)
-        case_conditions = set_assignments.map do |left, right|
-          left.is_not_distinct_from(right)
-        end
-
-        timestamp_keys.map do |key|
-          case_assignment = Arel::Nodes::Case.new.when(Arel::Nodes::And.new(case_conditions))
-                                             .then(model.arel_table[key])
-                                             .else(connection.high_precision_current_timestamp)
-          [model.arel_table[key], Arel::Nodes::Grouping.new(case_assignment)]
-        end
-      end
-
-      def might_be_nil_value?(value)
-        case value
-        when Arel::Nodes::SqlLiteral, Arel::Nodes::BindParam, ActiveModel::Attribute, nil then true
-        when String, Symbol, Numeric, BigDecimal, Date, Time, true, false then false
-        else true
-        end
-      end
-
-      def normalize_formulas(formulas)
-        return {} if formulas.blank?
-
-        normalized = formulas.to_h do |key, value|
-          [key.to_s, value.is_a?(Proc) ? value : value.to_s]
-        end
-        invalid = normalized.values.reject { |v| v.is_a?(Proc) } - FORMULAS
-        if invalid.any?
-          raise ArgumentError, "Unknown formula: #{invalid.first.inspect}"
-        end
-        normalized
       end
   end
 end

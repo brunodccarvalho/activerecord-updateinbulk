@@ -157,7 +157,7 @@ class ValuesTableTest < TestCase
     end
 
     def q(name)
-      table, column = name.split('.')
-      @connection.quote_table_name(table) + '.' + @connection.quote_column_name(column)
+      table, column = name.split(".")
+      @connection.quote_table_name(table) + "." + @connection.quote_column_name(column)
     end
 end
