@@ -63,7 +63,7 @@ namespace :db do
     adapter = args.fetch(:adapter)
     require_relative "test/support/schema_loader"
     with_connection(adapter) do
-      TestSupport::SchemaLoader.apply_schema!(adapter: adapter)
+      TestSupport::SchemaLoader.apply_schema!
     end
   end
 

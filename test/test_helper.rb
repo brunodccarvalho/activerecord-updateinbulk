@@ -17,6 +17,6 @@ adapter = TestSupport::DatabaseConfig.adapter
 
 
 ActiveRecord::Base.establish_connection(TestSupport::DatabaseConfig.config_for(adapter))
-TestSupport::SchemaLoader.apply_schema!(adapter: adapter)
+TestSupport::SchemaLoader.apply_schema!
 
 Dir[File.expand_path("models/*.rb", __dir__)].sort.each { |f| require f }

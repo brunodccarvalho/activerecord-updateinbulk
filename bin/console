@@ -13,7 +13,7 @@ require_relative "../test/models"
 
 adapter = "sqlite3"
 ActiveRecord::Base.establish_connection(TestSupport::DatabaseConfig.config_for(adapter))
-TestSupport::SchemaLoader.apply_schema!(adapter: adapter)
+TestSupport::SchemaLoader.apply_schema!
 
 fixture_paths = [File.expand_path("../test/fixtures", __dir__)]
 fixture_names = Dir[File.join(fixture_paths.first, "*.yml")].sort.map do |path|
