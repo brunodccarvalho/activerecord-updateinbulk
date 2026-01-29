@@ -5,8 +5,6 @@ require "yaml"
 
 module TestSupport
   module DatabaseConfig
-    include AdapterHelper
-
     module_function
 
     def adapter

@@ -133,6 +133,9 @@ bin/test-docker all
 # Linting
 bundle exec rubocop
 bundle exec rubocop --autocorrect
+
+# Run a command against the test database with all fixtures loaded
+bin/console -e "Book.first.id"
 ```
 
 ## How to work in this repo

@@ -3,10 +3,31 @@
 
 require "bundler/setup"
 require "active_record"
+require "active_record/fixtures"
 require "activerecord-updateinbulk"
 
-# You can add fixtures and/or initialization code here to make experimenting
-# with your gem easier. You can also use a different console, if you like.
+require_relative "../test/support/adapter_helper"
+require_relative "../test/support/database_config"
+require_relative "../test/support/schema_loader"
+require_relative "../test/models"
 
-require "irb"
-IRB.start(__FILE__)
+adapter = "sqlite3"
+ActiveRecord::Base.establish_connection(TestSupport::DatabaseConfig.config_for(adapter))
+TestSupport::SchemaLoader.apply_schema!(adapter: adapter)
+
+fixture_paths = [File.expand_path("../test/fixtures", __dir__)]
+fixture_names = Dir[File.join(fixture_paths.first, "*.yml")].sort.map do |path|
+  File.basename(path, ".yml")
+end
+ActiveRecord::FixtureSet.create_fixtures(fixture_paths, fixture_names)
+
+if ARGV[0] == "-e"
+  code = ARGV[1]
+  raise ArgumentError, "-e requires an argument" unless code
+  result = eval(code, TOPLEVEL_BINDING, __FILE__, 1)
+  puts result.inspect
+else
+  ActiveRecord::Base.logger = Logger.new($stdout, formatter: ->(*, msg) { "#{msg}\n" })
+  require "irb"
+  IRB.start(__FILE__)
+end

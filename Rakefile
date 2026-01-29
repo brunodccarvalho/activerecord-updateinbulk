@@ -1,21 +1,16 @@
 # frozen_string_literal: true
 
 require "bundler/setup"
+require "bundler/gem_tasks"
 require "rake/testtask"
 require "erb"
 require "yaml"
 require "active_record"
 require "active_record/tasks/database_tasks"
 
-require_relative "test/test_helper"
-
 ADAPTERS = %w[sqlite3 postgresql mysql2 trilogy].freeze
 
-def database_config(adapter)
-  path = File.expand_path("test/database.yml", __dir__)
-  yaml = ERB.new(File.read(path)).result
-  YAML.safe_load(yaml, aliases: true).fetch(adapter)
-end
+def database_config(adapter) = TestSupport::DatabaseConfig.config_for(adapter)
 
 def with_connection(adapter)
   ActiveRecord::Base.establish_connection(database_config(adapter))
@@ -28,10 +23,8 @@ task default: "display:notice"
 
 namespace :display do
   task :notice do
-    puts
     puts "Run tests with: bundle exec rake test:<adapter>"
     puts "Adapters: #{ADAPTERS.join(', ')}"
-    puts
   end
 end
 

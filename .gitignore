@@ -1,15 +1,20 @@
 .gem
 pkg
+checksums/
 
 .DS_Store
 Thumbs.db
 
 # Local development
+app/
 .vscode/
 *.log
 .byebug_history
+.irbrc
+.irb_history
 vendor/bundle/
 .bundle/
+Gemfile.lock
 
 # Agents
 CLAUDE.md

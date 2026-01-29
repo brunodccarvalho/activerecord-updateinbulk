@@ -6,15 +6,9 @@ something traditionally performed with either $N$ consecutive updates or a serie
 The method generates a single `UPDATE` query with an inner join to a handcrafted `VALUES` table constructor holding both row matching _conditions_ and the values to assign to each set of rows matched.
 This construct is available on the latest versions of all databases supported by rails.
 
-Similar to `update_all`, it returns the number of affected rows, and can additionally bump update timestamps.
+Similar to `update_all`, it returns the number of affected rows, and bumps update timestamps by default.
 
-Tested with Ruby 3.4 and Rails 8 for all builtin databases on latest versions.
-
-## Installation
-
-```ruby
-gem "activerecord-updateinbulk"
-```
+Tested on Ruby 3.4 and Rails 8 for all builtin databases on latest versions.
 
 ## Usage
 
@@ -123,14 +117,14 @@ Conditions and assigns must reference actual columns on the target table. Virtua
 The `UPDATE` is single-shot in any compliant database:
 - Either all rows matched are updated or none are.
 - Errors may occur for any of the usual reasons: a calculation error, or a check/unique constraint violation.
-- This mechanic can be used to design a query that purposely updates zero rows if it fails to update any of them, something which usually requires a transaction.
-- Rows earlier in the statement do not affect later rows - the updates are not 'chained' or 'consecutive'.
+- This can be used to design a query that updates zero rows if it fails to update any of them, something which usually requires a transaction.
+- Rows earlier in the statement do not affect later rows - the row updates are not 'sequenced'.
 
 ## Limitations
 
 There is no support for `ORDER BY`, `LIMIT`, `OFFSET`, `GROUP` or `HAVING` clauses in the relation.
 
-The implementation does not automatically batch (nor reject) impermissibly large queries. The size of the `VALUES` table is `rows * columns` when all rows assign to the same columns, or `rows * (distinct_columns + 1)` when the assign columns are not uniform (an extra bitmask indicator column is used).
+The implementation does not automatically batch (nor reject) impermissibly large queries. The size of the values table is `rows * columns` when all rows assign to the same columns, or `rows * (distinct_columns + 1)` when the assign columns are not uniform (an extra bitmask indicator column is used).
 
 ## Examples
 
@@ -138,7 +132,7 @@ The query's skeleton looks like this:
 ```sql
 --- postgres
 UPDATE "books" SET "name" = "t"."column2"
-FROM "books" INNER JOIN (VALUES (1, 'Agile'), (2, 'Web'), ...) "t" ON "books"."id" = "t"."column1"
+FROM "books" JOIN (VALUES (1, 'C++'), (2, 'Web'), ...) "t" ON "books"."id" = "t"."column1"
 WHERE ...
 ```
 
@@ -149,7 +143,7 @@ Example use cases:
 
 ## Testing & Development
 
-It is important to test both MariaDB and MySQL: their `VALUES` table semantics differ significantly.
+It is important to test both MariaDB and MySQL: their values table semantics differ significantly.
 
 ```bash
 # setup local test databases
