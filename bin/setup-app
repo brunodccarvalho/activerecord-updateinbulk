@@ -1,0 +1,110 @@
+#!/usr/bin/env bash
+# frozen_string_literal: true
+#
+# Sets up a minimal Rails app in ./app for railtie integration testing.
+# Database schema, models, and fixtures are symlinked from test/.
+#
+set -e
+
+FORCE=false
+for arg in "$@"; do
+  case "$arg" in
+    --force) FORCE=true ;;
+  esac
+done
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+APP="$ROOT/app"
+
+if [ -d "$APP" ]; then
+  if [ "$FORCE" = true ]; then
+    :
+  elif [ -t 0 ]; then
+    read -rp "==> $APP already exists. Remove and recreate? [y/N] " answer
+    if [ "$answer" != "y" ] && [ "$answer" != "Y" ]; then
+      echo "Aborted."
+      exit 1
+    fi
+  else
+    echo "Error: $APP already exists. Run interactively to confirm removal." >&2
+    exit 1
+  fi
+  rm -rf "$APP"
+fi
+
+echo "==> Generating minimal Rails app..."
+cd "$ROOT"
+rails new app --minimal --skip-git --database=sqlite3
+
+echo "==> Adding gem to Gemfile..."
+cat >> "$APP/Gemfile" <<'RUBY'
+# Gem under test
+gem "activerecord-updateinbulk", path: ".."
+RUBY
+
+echo "==> Running bundle install..."
+cd "$APP"
+bundle install
+
+echo "==> Symlinking schema, models, and fixtures from test/..."
+
+# db/schema.rb -> test/schema.rb
+rm -f "$APP/db/schema.rb"
+ln -s "../../test/schema.rb" "$APP/db/schema.rb"
+
+# app/models/test_models.rb -> test/models.rb
+ln -s "../../../test/models.rb" "$APP/app/models/test_models.rb"
+
+# test/fixtures/ -> test/fixtures/ (replace the directory rails created)
+rm -rf "$APP/test/fixtures"
+ln -s "../../test/fixtures" "$APP/test/fixtures"
+
+echo "==> Creating initializers..."
+
+# TestSupport shim so symlinked schema.rb can call TestSupport::DatabaseConfig.adapter
+cat > "$APP/config/initializers/test_support_shim.rb" <<'RUBY'
+# frozen_string_literal: true
+
+# Shim so the symlinked test/schema.rb can reference
+# TestSupport::DatabaseConfig.adapter inside the Rails app.
+module TestSupport
+  module DatabaseConfig
+    def self.adapter
+      ActiveRecord::Base.connection.adapter_name.downcase
+    end
+  end
+end
+RUBY
+
+# Load model definitions from symlinked test/models.rb
+cat > "$APP/config/initializers/test_models.rb" <<'RUBY'
+# frozen_string_literal: true
+
+# Load model definitions from the gem's test suite (symlinked into app/models/).
+require_relative "../../app/models/test_models"
+RUBY
+
+# Test railtie configuration
+cat > "$APP/config/initializers/update_in_bulk.rb" <<'RUBY'
+# frozen_string_literal: true
+
+Rails.application.config.active_record_update_in_bulk.values_table_alias = "vals"
+RUBY
+
+echo "==> Creating db/seeds.rb..."
+cat > "$APP/db/seeds.rb" <<'RUBY'
+# frozen_string_literal: true
+
+require "active_record/fixtures"
+
+fixture_path = Rails.root.join("test/fixtures")
+fixture_names = Dir[fixture_path.join("*.yml")].sort.map { |f| File.basename(f, ".yml") }
+ActiveRecord::FixtureSet.create_fixtures(fixture_path.to_s, fixture_names)
+RUBY
+
+echo "==> Loading schema and seeding database..."
+cd "$APP"
+bin/rails db:schema:load
+bin/rails db:seed
+
+echo "==> Done! Test with: cd app && bin/rails console"
