@@ -1,0 +1,32 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "bundler/setup"
+require "active_record"
+require "active_record/fixtures"
+require "activerecord-updateinbulk"
+
+require_relative "../test/support/adapter_helper"
+require_relative "../test/support/database_config"
+require_relative "../test/support/schema_loader"
+require_relative "../test/models"
+
+adapter = "sqlite3"
+ActiveRecord::Base.establish_connection(TestSupport::DatabaseConfig.config_for(adapter))
+TestSupport::SchemaLoader.apply_schema!(adapter: adapter)
+
+fixture_paths = [File.expand_path("../test/fixtures", __dir__)]
+fixture_names = Dir[File.join(fixture_paths.first, "*.yml")].sort.map do |path|
+  File.basename(path, ".yml")
+end
+ActiveRecord::FixtureSet.create_fixtures(fixture_paths, fixture_names)
+
+if ARGV[0] == "-e"
+  code = ARGV[1]
+  raise ArgumentError, "-e requires an argument" unless code
+  result = eval(code, TOPLEVEL_BINDING, __FILE__, 1)
+  puts result.inspect
+else
+  require "irb"
+  IRB.start(__FILE__)
+end
