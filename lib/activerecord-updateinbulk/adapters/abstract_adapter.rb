@@ -2,24 +2,40 @@
 
 module ActiveRecord::UpdateInBulk
   module AbstractAdapter
+    # Whether the database supports the SQL VALUES table constructor.
     def supports_values_tables?
       true
     end
 
+    # A string prepended to each row literal in the VALUES table constructor.
+    # Empty by default, per the standard. MySQL overrides this to <tt>"ROW"</tt>
+    # to produce <tt>VALUES ROW(1, 2), ROW(3, 4)</tt>.
     def values_table_row_prefix
       ""
     end
 
-    def values_table_default_column_names(width)
-      (1..width).map { |i| "column#{i}" }
-    end
-
-    # Whether the VALUES table sql serialization always requires aliasing.
+    # Whether VALUES table serialization must always include explicit column
+    # aliases (because defaults are missing or not statically known).
     def values_table_requires_aliasing?
       false
     end
 
-    # This is meant to be implemented by the adapters that want to typecast the tables.
+    # Returns an array of +width+ column names used by the database for a
+    # VALUES table constructor of the given width. These are the native names
+    # assigned to each column position when values_table_requires_aliasing?
+    # is false; otherwise they are alias conventions.
+    def values_table_default_column_names(width)
+      (1..width).map { |i| "column#{i}" }
+    end
+
+    # Hook for adapters that add explicit type casts to VALUES table entries
+    # so column types are correctly inferred by the database.
+    #
+    # Receives the +values_table+ (<tt>Arel::Nodes::ValuesTable</tt>) and
+    # +columns+ (an array of <tt>ActiveRecord::ConnectionAdapters::Column</tt>).
+    #
+    # Returns the typecasted Arel node: a new node or +values_table+ itself,
+    # possibly modified in place.
     def typecast_values_table(values_table, _columns)
       values_table
     end

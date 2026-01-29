@@ -15,8 +15,10 @@ module ActiveRecord::UpdateInBulk
               values_table.rows.all? { |row| row[index].nil? }
             column.sql_type
           end
-        when String
-          Arel.sql(column)
+        when Arel::Nodes::SqlLiteral, nil
+          column
+        else
+          raise ArgumentError, "Unexpected column type: #{column.class.name}"
         end
       end
 

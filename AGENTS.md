@@ -15,11 +15,11 @@ There is database-specific SQL generation and a dedicated test suite.
 `update_in_bulk` accepts multiple input formats that are interchangeable. Currently implemented formats:
 
 - Indexed format (keys are primary keys):
-  `Book.update_in_bulk({ 1 => { name: "Agil" }, 2 => { name: "Web" } }, ...)`
+  `Book.update_in_bulk({ 1 => { name: "Agile" }, 2 => { name: "Web" } }, ...)`
 - Paired format (each element is `[conditions, assigns]`):
-  `Book.update_in_bulk([[1, { name: "Agil" }], [2, { name: "Web" }]], ...)`
+  `Book.update_in_bulk([[1, { name: "Agile" }], [2, { name: "Web" }]], ...)`
 - Separated format:
-  `Book.update_in_bulk([1, 2], [{ name: "Agil" }, { name: "Web" }], ...)`
+  `Book.update_in_bulk([1, 2], [{ name: "Agile" }, { name: "Web" }], ...)`
 
 Conditions may be specified in multiple ways as well. For example for the separated format:
 - `[id1, id2, ...]` (implicit primary key)
@@ -38,7 +38,7 @@ The Builder's validations apply equally to all formats:
 
 ```sql
 --- mysql
-UPDATE `books` INNER JOIN (SELECT 1 `column1`, 'Scrum Development' `column2` UNION ALL VALUES ROW(2, 'Django for noobies'), ROW(3, 'Data-Driven Design')) `t` ON `books`.`id` = `t`.`column1` SET `books`.`name` = `t`.`column2`;
+UPDATE `books` INNER JOIN (VALUES ROW(1, 'Scrum Development'), ROW(2, 'Django for noobies'), ROW(3, 'Data-Driven Design')) `t` ON `books`.`id` = `t`.`column_0` SET `books`.`name` = `t`.`column_1`;
 
 --- mariadb
 UPDATE `books` INNER JOIN (SELECT 1 `column1`, 'Scrum Development' `column2` UNION ALL VALUES (2, 'Django for noobies'), (3, 'Data-Driven Design')) `t` ON `books`.`id` = `t`.`column1` SET `books`.`name` = `t`.`column2`;
@@ -47,7 +47,7 @@ UPDATE `books` INNER JOIN (SELECT 1 `column1`, 'Scrum Development' `column2` UNI
 UPDATE "books" "alias" SET "name" = "t"."column2" FROM "books" INNER JOIN (VALUES (1, 'Scrum Development'), (2, 'Django for noobies'), (3, 'Data-Driven Design')) "t" ON "books"."id" = "t"."column1" WHERE "books"."id" = "alias"."id";
 
 --- sqlite3
-UPDATE "books" AS "__active_record_update_alias" SET "name" = "t"."column2" FROM "books" INNER JOIN (VALUES (1, 'Scrum Development'), (2, 'Django for noobies'), (3, 'Data-Driven Design')) AS "t" ON "books"."id" = "t"."column1" WHERE "books"."id" = "__active_record_update_alias"."id";
+UPDATE "books" AS "alias" SET "name" = "t"."column2" FROM "books" INNER JOIN (VALUES (1, 'Scrum Development'), (2, 'Django for noobies'), (3, 'Data-Driven Design')) AS "t" ON "books"."id" = "t"."column1" WHERE "books"."id" = "alias"."id";
 ```
 
 ## Important observations specific to the problem the project solves
@@ -59,8 +59,15 @@ The VALUES table constructor has slightly different behaviour and syntax across 
 
 Rails uses the same adapters for MySQL and MariaDB, but the big difference in their behaviour between the databases means both must be dully considered and tested individually.
 
-At the `Arel` layer, the convention was made that the column names of `Arel::ValuesTable` are `column1 column2 ...` unless explicitly aliased in the constructor.
-This implies column renaming is always required during SQL generation for mariadb and mysql.
+At the `Arel` layer, `Arel::Nodes::ValuesTable` takes `columns` as a required positional argument.
+The builder passes adapter-native default column names via `connection.values_table_default_column_names(width)`:
+- postgres/sqlite3/mariadb: `column1, column2, ...`
+- mysql: `column_0, column_1, ...`
+
+When the requested columns match the adapter's native defaults, the visitor emits a bare `VALUES` constructor.
+When they differ (custom aliases), the visitor extracts the first row into a `SELECT` with aliases.
+MariaDB is a special case: its native column names are unknown (they are the first row's values),
+so `values_table_requires_aliasing?` returns `true` and aliasing is always emitted regardless of column names.
 
 To rename columns the implementation extracts the first row into a `SELECT`, as follows:
 `VALUES (1,2), (3,4), (5,6)` ==> `SELECT 1 AS a, 2 AS b UNION ALL VALUES (3,4), (5,6)`
