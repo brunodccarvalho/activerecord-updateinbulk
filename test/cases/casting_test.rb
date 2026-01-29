@@ -112,6 +112,42 @@ class CastingTest < TestCase
     assert_equal TypeVariety.all_nil, TypeVariety.find(2).all_values
   end
 
+  def test_typecast_assigns_full_null_column
+    TypeVariety.update_in_bulk({
+      1 => { col_integer: 11, col_text: nil },
+      2 => { col_integer: 22, col_text: nil }
+    })
+
+    assert_nil TypeVariety.find(1).col_text
+    assert_equal 11, TypeVariety.find(1).col_integer
+    assert_nil TypeVariety.find(2).col_text
+    assert_equal 22, TypeVariety.find(2).col_integer
+  end
+
+  def test_typecast_assigns_full_null_integer_column
+    TypeVariety.update_in_bulk({
+      1 => { col_integer: nil, col_text: "alpha" },
+      2 => { col_integer: nil, col_text: "beta" }
+    })
+
+    assert_nil TypeVariety.find(1).col_integer
+    assert_equal "alpha", TypeVariety.find(1).col_text
+    assert_nil TypeVariety.find(2).col_integer
+    assert_equal "beta", TypeVariety.find(2).col_text
+  end
+
+  def test_typecast_assigns_full_null_boolean_column
+    TypeVariety.update_in_bulk({
+      1 => { col_boolean: nil, col_text: "alpha" },
+      2 => { col_boolean: nil, col_text: "beta" }
+    })
+
+    assert_nil TypeVariety.find(1).col_boolean
+    assert_equal "alpha", TypeVariety.find(1).col_text
+    assert_nil TypeVariety.find(2).col_boolean
+    assert_equal "beta", TypeVariety.find(2).col_text
+  end
+
   def test_typecast_assigns_string_truncation
     skip "SQLite does not enforce string length limits" if current_adapter?(:SQLite3Adapter)
 
