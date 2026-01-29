@@ -240,20 +240,10 @@ module ActiveRecord::UpdateInBulk
         end
       end
 
+      # When you assign a value to NULL, we need to use a bitmask to distinguish that
+      # row in the values table from rows where the column is not to be assigned at all.
       def might_be_nil_value?(value)
-        case value
-        when Arel::Nodes::SqlLiteral, Arel::Nodes::BindParam, nil then true
-        when String, Symbol, Numeric, BigDecimal, Date, Time, DateTime, Hash, Array, true, false,
-             ActiveSupport::TimeWithZone, ActiveSupport::Duration, ActiveSupport::Multibyte::Chars,
-             ActiveModel::Type::Binary::Data
-          false
-        else
-          return false if defined?(ActiveRecord::ConnectionAdapters::PostgreSQL::OID::Bit::Data) &&
-            value.is_a?(ActiveRecord::ConnectionAdapters::PostgreSQL::OID::Bit::Data)
-          return false if defined?(ActiveRecord::ConnectionAdapters::PostgreSQL::OID::Xml::Data) &&
-            value.is_a?(ActiveRecord::ConnectionAdapters::PostgreSQL::OID::Xml::Data)
-          true
-        end
+        value.nil? || value.is_a?(Arel::Nodes::SqlLiteral) || value.is_a?(Arel::Nodes::BindParam)
       end
 
       def normalize_formulas(formulas)
