@@ -94,6 +94,28 @@ concatenating strings and computing minimums and maximums, and the user can cons
 
 Formulas are applied in the Builder (Arel) before optional-key handling (CASE/COALESCE), and are adapter-independent
 
+### Optional keys, bitmask column, and constant-column inlining
+
+**Optional keys** are write keys that are not present in every row's assigns hash. The VALUES table stores `nil`
+for rows that don't assign an optional key.
+
+**Bitmask column**: When an optional key's assigned value could be `nil` (or `SqlLiteral`/`BindParam`), a bitmask
+column is appended as the last column in the VALUES table. It is a string with one character per bitmask key:
+`"1"` means "this row assigns this key", `"0"` means "this row does not assign this key." This distinguishes
+"assign NULL" from "don't touch" — since `COALESCE(nil, current)` cannot tell them apart.
+
+**Bitmask keys** (`bitmask_keys`): the subset of optional keys where at least one row assigns a nil-ish value
+(`nil`, `SqlLiteral`, or `BindParam`). Non-bitmask optional keys use `COALESCE(rhs, current)`. Required keys
+use bare `rhs`. Bitmask keys use `CASE SUBSTRING(bitmask_col, bit_pos, 1) WHEN '1' THEN rhs ELSE current END`.
+
+**Constant-column inlining**: After normalization, columns where every row has the same value are detected.
+These columns are removed from the VALUES table and inlined as literals:
+- Constant condition column → literal equality in ON clause (e.g., `books.status = 'active'`)
+- Constant assign column (no formula) → direct literal in SET clause (e.g., `books.status = 'published'`)
+- Only required (non-optional) assign columns are eligible for inlining
+- Assign columns with formulas are never inlined (the formula references the VALUES table column as `rhs`)
+- When all columns are constant (degenerate case), the optimization is skipped entirely
+
 ## Project Overview
 - Entry point: `lib/activerecord-updateinbulk.rb`.
 - Core arel building logic: `lib/activerecord-updateinbulk/builder.rb`.
@@ -113,7 +135,7 @@ Formulas are applied in the Builder (Arel) before optional-key handling (CASE/CO
 
 - Test cases: `test/cases/`
 - Database configuration: `test/database.yml`
-- Schema loading: `test/schema/schema.rb` (always) + `test/schema/<adapter>_schema.rb` (when present)
+- Schema loading: `test/schema.rb`
 - Fixtures in `test/fixtures/`, models in `test/models.rb`
 - Three high-level mechanisms to invoke tests:
   - Local development: `bundle exec rake test:$adapter` - uses local machine databases
@@ -124,17 +146,17 @@ Formulas are applied in the Builder (Arel) before optional-key handling (CASE/CO
 
 ```bash
 # Docker-based tests (start containers first: docker-compose up -d)
-bin/test-docker sqlite3
+bin/test-docker sqlite3 # Fastest for debugging loop
 bin/test-docker mysql2
 bin/test-docker mariadb
 bin/test-docker postgresql
-bin/test-docker all
+bin/test-docker all # Final verification
 
 # Linting
 bundle exec rubocop
 bundle exec rubocop --autocorrect
 
-# Run a command against the test database with all fixtures loaded
+# Run a command against the test database with all fixtures loaded. Useful for debugging
 bin/console -e "Book.first.id"
 ```
 
@@ -150,7 +172,6 @@ bin/console -e "Book.first.id"
 - Do not add new runtime or development dependencies without first asking.
 - Follow rails code style lightly: prefer double quotes for strings.
 - Keep Ruby 3.4 / Rails 8 compatibility in mind.
-
 
 ## When making plans
 - The plan structure should include a list of actionable items.

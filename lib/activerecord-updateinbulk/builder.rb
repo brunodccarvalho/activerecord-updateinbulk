@@ -126,6 +126,8 @@ module ActiveRecord::UpdateInBulk
       resolve_attribute_aliases!
       resolve_read_and_write_keys!
       verify_read_and_write_keys!
+      serialize_values!
+      detect_constant_columns!
     end
 
     def build_arel
@@ -138,7 +140,43 @@ module ActiveRecord::UpdateInBulk
     end
 
     private
-      attr_reader :read_keys, :write_keys
+      attr_reader :read_keys, :write_keys, :constant_conditions, :constant_assigns
+
+      def serialize_values!
+        types = (read_keys | write_keys).index_with { |key| model.type_for_attribute(key) }
+        @conditions.each do |row|
+          row.each do |key, value|
+            next if opaque_value?(value)
+            row[key] = ActiveModel::Type::SerializeCastValue.serialize(type = types[key], type.cast(value))
+          end
+        end
+        @assigns.each do |row|
+          row.each do |key, value|
+            next if opaque_value?(value)
+            row[key] = ActiveModel::Type::SerializeCastValue.serialize(type = types[key], type.cast(value))
+          end
+        end
+      end
+
+      def detect_constant_columns!
+        @constant_conditions = {}
+        @constant_assigns = {}
+
+        read_keys.each do |key|
+          first = @conditions.first.fetch(key)
+          next if opaque_value?(first)
+          @constant_conditions[key] = first if @conditions.all? { |c| c.fetch(key) == first }
+        end
+        # We can't drop all the conditions columns
+        @constant_conditions.delete(read_keys.first) if @constant_conditions.size == read_keys.size
+
+        (write_keys - optional_keys).each do |key|
+          next if @formulas.key?(key) # need to pass Arel::Attribute as argument to formula
+          first = @assigns.first[key]
+          next if opaque_value?(first)
+          @constant_assigns[key] = first if @assigns.all? { |a| a[key] == first }
+        end
+      end
 
       def optional_keys
         @optional_keys ||= write_keys - @assigns.map(&:keys).reduce(write_keys, &:intersection)
@@ -149,32 +187,44 @@ module ActiveRecord::UpdateInBulk
       end
 
       def build_values_table
-        types = (read_keys | write_keys).index_with { |key| model.type_for_attribute(key) }
-        rows, bitmask_keys = serialize_values_rows do |key, value|
-          next value if Arel::Nodes::SqlLiteral === value
-          ActiveModel::Type::SerializeCastValue.serialize(type = types[key], type.cast(value))
-        end
+        rows, bitmask_keys = serialize_values_rows
         append_bitmask_column(rows, bitmask_keys) unless bitmask_keys.empty?
         values_table = Arel::Nodes::ValuesTable.new(self.class.values_table_name, rows, connection.values_table_default_column_names(rows.first.size))
         [values_table, bitmask_keys]
       end
 
       def build_join_conditions(table, values_table)
-        read_keys.map.with_index do |key, index|
-          table[key].eq(values_table[index])
+        variable_index = 0
+        read_keys.map do |key|
+          if constant_conditions.key?(key)
+            table[key].eq(Arel::Nodes::Casted.new(constant_conditions[key], table[key]))
+          else
+            condition = table[key].eq(values_table[variable_index])
+            variable_index += 1
+            condition
+          end
         end
       end
 
       def build_set_assignments(table, values_table, bitmask_keys)
+        column = read_keys.count { |k| !constant_conditions.key?(k) }
+
         bitmask_functions = bitmask_keys.index_with.with_index(1) do |key, index|
           Arel::Nodes::NamedFunction.new("SUBSTRING", [values_table[-1], index, 1])
         end
 
-        set_assignments = write_keys.map.with_index do |key, index|
+        set_assignments = write_keys.map do |key|
           formula = @formulas[key]
           lhs = table[key]
-          rhs = values_table[index + read_keys.size]
-          rhs = self.class.apply_formula(formula, lhs, rhs, model) if formula
+
+          if constant_assigns.key?(key)
+            rhs = Arel::Nodes::Casted.new(constant_assigns[key], table[key])
+          else
+            rhs = values_table[column]
+            column += 1
+            rhs = self.class.apply_formula(formula, lhs, rhs, model) if formula
+          end
+
           if function = bitmask_functions[key]
             rhs = Arel::Nodes::Case.new(function).when("1").then(rhs).else(table[key])
           elsif optional_keys.include?(key)
@@ -191,26 +241,30 @@ module ActiveRecord::UpdateInBulk
       end
 
       def typecast_values_table(values_table)
+        variable_keys = read_keys.reject { |k| constant_conditions.key?(k) } + write_keys.reject { |k| constant_assigns.key?(k) }
         columns_hash = model.columns_hash
-        model_types = read_keys.to_a.concat(write_keys.to_a).map! { |key| columns_hash.fetch(key) }
+        model_types = variable_keys.map! { |key| columns_hash.fetch(key) }
         connection.typecast_values_table(values_table, model_types).alias(self.class.values_table_name)
       end
 
-      def serialize_values_rows(&)
+      def serialize_values_rows
         bitmask_keys = Set.new
 
         rows = @conditions.each_with_index.map do |row_conditions, row_index|
           row_assigns = @assigns[row_index]
-          condition_values = read_keys.map do |key|
-            yield(key, row_conditions[key])
+          row = []
+          read_keys.each do |key|
+            next if constant_conditions.key?(key)
+            row << row_conditions[key]
           end
-          write_values = write_keys.map do |key|
-            next unless row_assigns.key?(key)
-            value = yield(key, row_assigns[key])
+          write_keys.each do |key|
+            next if constant_assigns.key?(key)
+            next row << nil unless row_assigns.key?(key)
+            value = row_assigns[key]
             bitmask_keys.add(key) if optional_keys.include?(key) && might_be_nil_value?(value)
-            value
+            row << value
           end
-          condition_values.concat(write_values)
+          row
         end
 
         [rows, bitmask_keys]
@@ -240,10 +294,14 @@ module ActiveRecord::UpdateInBulk
         end
       end
 
-      # When you assign a value to NULL, we need to use a bitmask to distinguish that
+      # When you assign a value to NULL, we need to use a bitmask to distinguish
       # row in the values table from rows where the column is not to be assigned at all.
       def might_be_nil_value?(value)
-        value.nil? || value.is_a?(Arel::Nodes::SqlLiteral) || value.is_a?(Arel::Nodes::BindParam)
+        value.nil? || opaque_value?(value)
+      end
+
+      def opaque_value?(value)
+        value.is_a?(Arel::Nodes::SqlLiteral) || value.is_a?(Arel::Nodes::BindParam)
       end
 
       def normalize_formulas(formulas)

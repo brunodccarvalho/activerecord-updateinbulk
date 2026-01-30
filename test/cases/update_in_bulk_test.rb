@@ -446,4 +446,93 @@ class UpdateInBulkTest < TestCase
       Book.table_name = "books"
     end
   end
+
+  def test_constant_condition_column_is_inlined
+    assert_queries_match(/ON .?comments...post_id.? = (?:CAST\()?4/i) do
+      assert_queries_match(/\('SpecialComment', 'inline B'\)/) do
+        Comment.update_in_bulk([
+          [{ post_id: 4, type: "Comment" },        { body: "inline A" }],
+          [{ post_id: 4, type: "SpecialComment" }, { body: "inline B" }]
+        ])
+      end
+    end
+
+    assert_equal "inline A", Comment.find(8).body  # Comment, post_id=4
+    assert_equal "inline B", Comment.find(6).body  # SpecialComment, post_id=4
+    assert_equal "inline B", Comment.find(7).body  # SpecialComment, post_id=4
+  end
+
+  def test_constant_assign_column_is_inlined
+    assert_queries_match(/SET.+status. = (?:CAST\()?1\b/i) do
+      assert_queries_match(/\(2, 'Book-B'\)/) do
+        Book.update_in_bulk({
+          1 => { name: "Book-A", status: :written },
+          2 => { name: "Book-B", status: :written },
+          3 => { name: "Book-C", status: :written }
+        })
+      end
+    end
+
+    books = Book.where(id: 1..3).order(:id).to_a
+    assert_equal %w[Book-A Book-B Book-C], books.map(&:name)
+    assert_equal %w[written written written], books.map(&:status)
+  end
+
+  def test_formula_prevents_assign_inlining
+    ProductStock.update_in_bulk({
+      "Tree" => { quantity: 5 },
+      "Wreath" => { quantity: 5 }
+    }, formulas: { quantity: :add })
+
+    assert_equal 15, ProductStock.find("Tree").quantity
+    assert_equal 55, ProductStock.find("Wreath").quantity
+  end
+
+  def test_constant_assign_with_mixed_types_is_inlined
+    assert_queries_match(/SET.+status. = (?:CAST\()?1\b/i) do
+      Book.update_in_bulk({
+        1 => { name: "Book A", status: :written },
+        2 => { name: "Book B", status: "written" }
+      })
+    end
+
+    books = Book.where(id: [1, 2]).order(:id).to_a
+    assert_equal %w[Book\ A Book\ B], books.map(&:name)
+    assert_equal %w[written written], books.map(&:status)
+  end
+
+  def test_mixed_constant_and_variable_columns
+    Book.update_in_bulk({
+      1 => { name: "Updated-1", status: :written, cover: "soft" },
+      2 => { name: "Updated-2", status: :written, cover: "hard" }
+    })
+
+    books = Book.where(id: [1, 2]).order(:id).to_a
+    assert_equal %w[Updated-1 Updated-2], books.map(&:name)
+    assert_equal %w[written written], books.map(&:status)
+    assert_equal %w[soft hard], books.map(&:cover)
+  end
+
+  def test_all_columns_constant_skips_optimization
+    Book.update_in_bulk({ 1 => { name: "Solo" } })
+    assert_equal "Solo", Book.find(1).name
+
+    # Multi-row where everything is identical
+    Book.update_in_bulk({
+      1 => { status: :published },
+      2 => { status: :published }
+    })
+    assert_equal %w[published published], Book.where(id: [1, 2]).order(:id).pluck(:status)
+  end
+
+  def test_constant_condition_and_constant_assign_together
+    Comment.update_in_bulk([
+      [{ post_id: 4, type: "Comment" },        { body: "same body" }],
+      [{ post_id: 4, type: "SpecialComment" }, { body: "same body" }]
+    ])
+
+    assert_equal "same body", Comment.find(8).body   # Comment, post_id=4
+    assert_equal "same body", Comment.find(6).body   # SpecialComment, post_id=4
+    assert_equal "Don't think too hard", Comment.find(3).body  # post_id=2 (untouched)
+  end
 end
