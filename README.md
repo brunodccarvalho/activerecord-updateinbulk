@@ -10,6 +10,8 @@ Similar to `update_all`, it returns the number of affected rows, and bumps updat
 
 Tested on Ruby 3.4 and Rails 8 for all builtin databases on latest versions.
 
+Important note: there is a flaky test on MySQL (that is not flaky on MariaDB) that I am still investigating.
+
 ## Usage
 
 ```ruby

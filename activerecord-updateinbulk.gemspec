@@ -10,7 +10,7 @@ Gem::Specification.new do |spec|
 
   spec.summary = "Bulk update extension for ActiveRecord"
   spec.description = "Introduces update_in_bulk(), a method to update many records in a table with different values in a single SQL statement."
-  spec.homepage = "https://github.com/bruno/activerecord-updateinbulk"
+  spec.homepage = "https://github.com/brunodccarvalho/activerecord-updateinbulk"
   spec.license = "MIT"
   spec.required_ruby_version = ">= 3.2"
 
