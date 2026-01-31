@@ -525,6 +525,30 @@ class UpdateInBulkTest < TestCase
     assert_equal %w[published published], Book.where(id: [1, 2]).order(:id).pluck(:status)
   end
 
+  def test_arel_sql_prevents_assign_inlining
+    subquery = "(SELECT name FROM books WHERE id = 1)"
+    Post.update_in_bulk([
+      [{ id: 1 }, { title: subquery }],
+      [{ id: 2 }, { title: Arel.sql(subquery) }],
+      [{ id: 3 }, { title: subquery }]
+    ])
+
+    assert_equal subquery, Post.find(1).title
+    assert_equal "Agile Web Development with Rails", Post.find(2).title
+  end
+
+  def test_arel_sql_prevents_condition_inlining
+    subquery = "(SELECT 'Welcome to the weblog')"
+    Post.update_in_bulk([
+      [{ title: subquery }, { body: "A" }],
+      [{ title: Arel.sql(subquery) }, { body: "B" }],
+      [{ title: subquery }, { body: "C" }]
+    ])
+
+    assert_includes ["A", "C"], Post.find(7).body
+    assert_equal "B", Post.find(1).body
+  end
+
   def test_constant_condition_and_constant_assign_together
     Comment.update_in_bulk([
       [{ post_id: 4, type: "Comment" },        { body: "same body" }],

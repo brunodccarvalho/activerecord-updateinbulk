@@ -164,8 +164,7 @@ module ActiveRecord::UpdateInBulk
 
         read_keys.each do |key|
           first = @conditions.first.fetch(key)
-          next if opaque_value?(first)
-          @constant_conditions[key] = first if @conditions.all? { |c| c.fetch(key) == first }
+          @constant_conditions[key] = first if @conditions.all? { |c| !opaque_value?(v = c.fetch(key)) && v == first }
         end
         # We can't drop all the conditions columns
         @constant_conditions.delete(read_keys.first) if @constant_conditions.size == read_keys.size
@@ -173,8 +172,7 @@ module ActiveRecord::UpdateInBulk
         (write_keys - optional_keys).each do |key|
           next if @formulas.key?(key) # need to pass Arel::Attribute as argument to formula
           first = @assigns.first[key]
-          next if opaque_value?(first)
-          @constant_assigns[key] = first if @assigns.all? { |a| a[key] == first }
+          @constant_assigns[key] = first if @assigns.all? { |a| !opaque_value?(v = a[key]) && v == first }
         end
       end
 

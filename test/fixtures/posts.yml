@@ -43,7 +43,7 @@ sti_habtm:
 eager_other:
   id: 7
   author_id: 2
-  title: eager loading with OR'd conditions
+  title: "(SELECT 'Welcome to the weblog')"
   body: hello
   type: Post
 
