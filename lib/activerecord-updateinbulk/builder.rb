@@ -234,7 +234,9 @@ module ActiveRecord::UpdateInBulk
         end
 
         if timestamp_keys.any?
-          set_assignments += timestamp_assignments(set_assignments)
+          # Timestamp assignments precede data assignments to increase the
+          # change MySQL will actually run them against the original data.
+          set_assignments = timestamp_assignments(set_assignments) + set_assignments
         end
 
         set_assignments

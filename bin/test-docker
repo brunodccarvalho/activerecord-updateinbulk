@@ -44,17 +44,17 @@ case "$ADAPTER" in
     ;;
   all)
     echo "Running all tests..."
-    echo "====== sqlite3 ======"
+    echo "=== sqlite3 ==="
     "$0" sqlite3
-    echo "====== postgresql ======"
+    echo "=== postgresql ==="
     "$0" postgresql
-    echo "====== mysql2 ======"
+    echo "=== mysql2 ==="
     "$0" mysql2
-    echo "====== trilogy-mysql ======"
+    echo "=== trilogy-mysql ==="
     "$0" trilogy-mysql
-    echo "====== mariadb ======"
+    echo "=== mariadb ==="
     "$0" mariadb
-    echo "====== trilogy-mariadb ======"
+    echo "=== trilogy-mariadb ==="
     "$0" trilogy-mariadb
     ;;
   *)

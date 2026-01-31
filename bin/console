@@ -11,7 +11,7 @@ require_relative "../test/support/database_config"
 require_relative "../test/support/schema_loader"
 require_relative "../test/models"
 
-adapter = "sqlite3"
+adapter = ENV.fetch("ARCONN", "sqlite3")
 ActiveRecord::Base.establish_connection(TestSupport::DatabaseConfig.config_for(adapter))
 TestSupport::SchemaLoader.apply_schema!
 

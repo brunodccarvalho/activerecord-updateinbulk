@@ -10,8 +10,6 @@ Similar to `update_all`, it returns the number of affected rows, and bumps updat
 
 Tested on Ruby 3.4 and Rails 8 for all builtin databases on latest versions.
 
-Important note: there is a flaky test on MySQL (that is not flaky on MariaDB) that I am still investigating.
-
 ## Usage
 
 ```ruby
@@ -74,6 +72,8 @@ Employee.update_in_bulk({
   2 => { department: "Sales" }
 }, record_timestamps: false)
 ```
+
+Note: On MySQL [assignments are processed in series](https://dev.mysql.com/doc/refman/9.0/en/update.html), so there is no real guarantee that the timestamps are actually updated.
 
 ### Formulas (computed assignments)
 
