@@ -158,6 +158,9 @@ bundle exec rubocop --autocorrect
 
 # Run a command against the test database with all fixtures loaded. Useful for debugging
 bin/console -e "Book.first.id"
+
+# Benchmarking
+bundle exec ruby bench/performance_bench.rb | rg "i/s|rows"
 ```
 
 ## How to work in this repo

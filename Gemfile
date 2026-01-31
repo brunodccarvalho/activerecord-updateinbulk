@@ -12,6 +12,7 @@ group :development, :test do
   gem "rake"
   gem "irb"
   gem "rdoc"
+  gem "benchmark-ips"
 end
 
 platforms :ruby do

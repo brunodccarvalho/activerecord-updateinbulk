@@ -71,6 +71,19 @@ namespace :db do
   task :prepare, [:adapter] => [:create, :schema]
 end
 
+desc "Run all benchmarks"
+task :bench do
+  exec "bin/bench", "all"
+end
+
+namespace :bench do
+  desc "Run performance benchmarks"
+  task(:performance) { exec "bin/bench", "performance" }
+
+  desc "Run comparison benchmarks"
+  task(:comparison) { exec "bin/bench", "comparison" }
+end
+
 ADAPTERS.each do |adapter|
   namespace :db do
     desc "Create test database for #{adapter}"

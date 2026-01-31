@@ -1,0 +1,29 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+#
+# Usage: bin/bench [TYPE]
+#
+# Types:
+#   performance   Raw performance benchmarks
+#   comparison    Comparative benchmarks
+#   all           Both (default)
+#
+# Env: ARADAPTER=sqlite3|postgresql|mysql2|trilogy
+#
+
+type = ARGV[0] || "all"
+
+case type
+when "performance"
+  load File.expand_path("../bench/performance_bench.rb", __dir__)
+when "comparison"
+  load File.expand_path("../bench/comparison_bench.rb", __dir__)
+when "all"
+  load File.expand_path("../bench/performance_bench.rb", __dir__)
+  load File.expand_path("../bench/comparison_bench.rb", __dir__)
+else
+  warn "Unknown benchmark type: #{type}"
+  warn "Usage: bin/bench [performance|comparison|all]"
+  exit 1
+end
