@@ -1,65 +1,31 @@
 #!/usr/bin/env bash
 set -e
 
-ADAPTER="$1"
+DATABASE="$1"
 
-case "$ADAPTER" in
-  mysql|mysql2)
-    export MYSQL_HOST=127.0.0.1
-    export MYSQL_PORT=3336
-    export MYSQL_USER=root
-    export MYSQL_PASSWORD=mysql
-    bundle exec rake test:mysql2
+case "$DATABASE" in
+  mysql|mysql2|mariadb)
+    bin/with-docker "$DATABASE" bundle exec rake test:mysql2
     ;;
-  trilogy|trilogy-mysql)
-    export MYSQL_HOST=127.0.0.1
-    export MYSQL_PORT=3336
-    export MYSQL_USER=root
-    export MYSQL_PASSWORD=mysql
-    bundle exec rake test:mysql2
-    ;;
-  mariadb)
-    export MYSQL_HOST=127.0.0.1
-    export MYSQL_PORT=3337
-    export MYSQL_USER=root
-    export MYSQL_PASSWORD=mariadb
-    bundle exec rake test:mysql2
-    ;;
-  trilogy-mariadb)
-    export MYSQL_HOST=127.0.0.1
-    export MYSQL_PORT=3337
-    export MYSQL_USER=root
-    export MYSQL_PASSWORD=mariadb
-    bundle exec rake test:mysql2
+  trilogy|trilogy-mysql|trilogy-mariadb)
+    bin/with-docker "$DATABASE" bundle exec rake test:trilogy
     ;;
   postgres|postgresql)
-    export POSTGRES_HOST=127.0.0.1
-    export POSTGRES_PORT=3338
-    export POSTGRES_USER=postgres
-    export POSTGRES_PASSWORD=postgres
-    bundle exec rake test:postgresql
+    bin/with-docker "$DATABASE" bundle exec rake test:postgresql
     ;;
-  sqlite3)
-    bundle exec rake test:sqlite3
+  sqlite|sqlite3)
+    bin/with-docker "$DATABASE" bundle exec rake test:sqlite3
     ;;
   all)
     echo "Running all tests..."
-    echo "=== sqlite3 ==="
-    "$0" sqlite3
-    echo "=== postgresql ==="
-    "$0" postgresql
-    echo "=== mysql2 ==="
-    "$0" mysql2
-    echo "=== trilogy-mysql ==="
-    "$0" trilogy-mysql
-    echo "=== mariadb ==="
-    "$0" mariadb
-    echo "=== trilogy-mariadb ==="
-    "$0" trilogy-mariadb
+    for database in sqlite3 postgresql mysql2 trilogy-mysql mariadb trilogy-mariadb; do
+      echo "=== $database ==="
+      "$0" "$database"
+    done
     ;;
   *)
-    echo "Unknown adapter: $ADAPTER"
-    echo "Supported adapters: mysql2, mariadb, postgresql, sqlite3, trilogy-{mysql2,mariadb}"
+    echo "Unknown database target: $DATABASE"
+    echo "Supported targets: mysql, mariadb, postgresql, sqlite3, trilogy-{mysql,mariadb}"
     exit 1
     ;;
 esac

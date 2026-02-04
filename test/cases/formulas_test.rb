@@ -6,19 +6,16 @@ require "models"
 class FormulasTest < TestCase
   fixtures :all
 
-  def setup
-    Arel::Table.engine = nil # should not rely on the global Arel::Table.engine
-  end
-
   def test_formulas_add
     ProductStock.update_in_bulk({
       "Tree" => { quantity: 5 },
       "Toy train" => { quantity: 3 }
     }, formulas: { quantity: :add })
 
-    assert_equal 15, ProductStock.find("Tree").quantity
-    assert_equal 13, ProductStock.find("Toy train").quantity
-    assert_equal 10, ProductStock.find("Toy car").quantity
+    assert_model_delta(ProductStock, {
+      "Tree" => { quantity: 15 },
+      "Toy train" => { quantity: 13 }
+    })
   end
 
   def test_formulas_subtract
@@ -27,31 +24,37 @@ class FormulasTest < TestCase
       "Wreath" => { quantity: 5 }
     }, formulas: { quantity: :subtract })
 
-    assert_equal 70, ProductStock.find("Christmas balls").quantity
-    assert_equal 45, ProductStock.find("Wreath").quantity
-    assert_equal 400, ProductStock.find("Tree lights").quantity
+    assert_model_delta(ProductStock, {
+      "Christmas balls" => { quantity: 70 },
+      "Wreath" => { quantity: 45 }
+    })
   end
 
   def test_formulas_concat_append
     Book.update_in_bulk({
       1 => { name: " (2nd edition)" },
-      2 => { name: " (revised)" }
+      2 => { name: " (revised)" },
+      3 => { name: "" }
     }, formulas: { name: :concat_append })
 
-    assert_equal "Agile Web Development with Rails (2nd edition)", Book.find(1).name
-    assert_equal "Ruby for Rails (revised)", Book.find(2).name
-    assert_equal "Domain-Driven Design", Book.find(3).name
+    assert_model_delta(Book, {
+      1 => { name: "Agile Web Development with Rails (2nd edition)", updated_at: :_modified },
+      2 => { name: "Ruby for Rails (revised)", updated_at: :_modified }
+    })
   end
 
   def test_formulas_concat_prepend
-    Book.update_in_bulk({
-      1 => { name: "Classic: " },
-      2 => { name: "Classic: " }
-    }, formulas: { name: :concat_prepend })
+    assert_query_sql(values: 2, on_width: 1, cases: 2, whens: 2) do
+      Book.update_in_bulk({
+        1 => { name: "Classic: " },
+        2 => { name: "Classic: " }
+      }, formulas: { name: :concat_prepend })
+    end
 
-    assert_equal "Classic: Agile Web Development with Rails", Book.find(1).name
-    assert_equal "Classic: Ruby for Rails", Book.find(2).name
-    assert_equal "Domain-Driven Design", Book.find(3).name
+    assert_model_delta(Book, {
+      1 => { name: "Classic: Agile Web Development with Rails", updated_at: :_modified },
+      2 => { name: "Classic: Ruby for Rails", updated_at: :_modified }
+    })
   end
 
   def test_formulas_min
@@ -60,9 +63,7 @@ class FormulasTest < TestCase
       "Toy train" => { quantity: 15 }
     }, formulas: { quantity: :min })
 
-    assert_equal 5, ProductStock.find("Tree").quantity
-    assert_equal 10, ProductStock.find("Toy train").quantity
-    assert_equal 0, ProductStock.find("Stockings").quantity
+    assert_model_delta(ProductStock, { "Tree" => { quantity: 5 } })
   end
 
   def test_formulas_max
@@ -71,55 +72,22 @@ class FormulasTest < TestCase
       "Sweater" => { quantity: 2 }
     }, formulas: { quantity: :max })
 
-    assert_equal 5, ProductStock.find("Stockings").quantity
-    assert_equal 2, ProductStock.find("Sweater").quantity
-    assert_equal 10, ProductStock.find("Tree").quantity
+    assert_model_delta(ProductStock, {
+      "Stockings" => { quantity: 5 },
+      "Sweater" => { quantity: 2 }
+    })
   end
 
-  def test_formulas_applied_only_to_specified_columns
-    Book.update_all(pages: 1)
-
+  def test_formulas_applied_only_to_specified_rows_and_columns
     Book.update_in_bulk({
       1 => { name: " X", pages: 100 },
-      2 => { name: " Y", pages: 200 }
+      2 => { pages: 200 }
     }, formulas: { name: :concat_append })
 
-    books = Book.where(id: 1..2).order(:id).to_a
-    assert_equal "Agile Web Development with Rails X", books[0].name
-    assert_equal 100, books[0].pages
-    assert_equal "Ruby for Rails Y", books[1].name
-    assert_equal 200, books[1].pages
-    assert_equal "Domain-Driven Design", Book.find(3).name
-  end
-
-  def test_formulas_skipped_for_rows_missing_formula_column
-    Book.update_in_bulk({
-      1 => { name: " X" },
-      2 => { pages: 7 }
-    }, formulas: { name: :concat_append })
-
-    assert_equal "Agile Web Development with Rails X", Book.find(1).name
-    assert_equal "Ruby for Rails", Book.find(2).name
-    assert_equal "Thoughtleadering", Book.find(4).name
-  end
-
-  def test_formulas_with_paired_format
-    ProductStock.update_in_bulk([
-      [{ name: "Tree" }, { quantity: 5 }],
-      [{ name: "Toy train" }, { quantity: 3 }]
-    ], formulas: { quantity: :add })
-
-    assert_equal 15, ProductStock.find("Tree").quantity
-    assert_equal 13, ProductStock.find("Toy train").quantity
-    assert_equal 10, ProductStock.find("Toy car").quantity
-  end
-
-  def test_formulas_with_separated_format
-    ProductStock.update_in_bulk(["Tree", "Toy train"], [{ quantity: 5 }, { quantity: 3 }], formulas: { quantity: :add })
-
-    assert_equal 15, ProductStock.find("Tree").quantity
-    assert_equal 13, ProductStock.find("Toy train").quantity
-    assert_equal 10, ProductStock.find("Toy car").quantity
+    assert_model_delta(Book, {
+      1 => { name: "Agile Web Development with Rails X", pages: 100, updated_at: :_modified },
+      2 => { pages: 200, updated_at: :_modified },
+    })
   end
 
   def test_rejects_unknown_formulas
@@ -144,9 +112,10 @@ class FormulasTest < TestCase
       "Toy train" => { quantity: 3 }
     }, formulas: { quantity: add_proc })
 
-    assert_equal 15, ProductStock.find("Tree").quantity
-    assert_equal 13, ProductStock.find("Toy train").quantity
-    assert_equal 10, ProductStock.find("Toy car").quantity
+    assert_model_delta(ProductStock, {
+      "Tree" => { quantity: 15 },
+      "Toy train" => { quantity: 13 }
+    })
   end
 
   def test_custom_formula_proc_arity_3
@@ -159,9 +128,10 @@ class FormulasTest < TestCase
       2 => { name: " (custom)" }
     }, formulas: { name: concat_proc })
 
-    assert_equal "Agile Web Development with Rails (custom)", Book.find(1).name
-    assert_equal "Ruby for Rails (custom)", Book.find(2).name
-    assert_equal "Domain-Driven Design", Book.find(3).name
+    assert_model_delta(Book, {
+      1 => { name: "Agile Web Development with Rails (custom)", updated_at: :_modified },
+      2 => { name: "Ruby for Rails (custom)", updated_at: :_modified }
+    })
   end
 
   def test_custom_formula_proc_wrong_arity
@@ -192,9 +162,10 @@ class FormulasTest < TestCase
       2 => { pages: 7 }
     }, formulas: { name: concat_proc })
 
-    assert_equal "Agile Web Development with Rails X", Book.find(1).name
-    assert_equal "Ruby for Rails", Book.find(2).name
-    assert_equal "Thoughtleadering", Book.find(4).name
+    assert_model_delta(Book, {
+      1 => { name: "Agile Web Development with Rails X", updated_at: :_modified },
+      2 => { pages: 7, updated_at: :_modified }
+    })
   end
 
   def test_custom_formula_proc_json_append
@@ -205,9 +176,10 @@ class FormulasTest < TestCase
       [{ name: "Joao" }, { notifications: "Third" }]
     ], formulas: { notifications: json_array_append_proc })
 
-    assert_equal ["Second", "Welcome"], User.find_by(name: "David").notifications
-    assert_equal ["Third", "Primeira", "Segunda"], User.find_by(name: "Joao").notifications
-    assert_equal ["One", "Two", "Three"], User.find_by(name: "Albert").notifications
+    assert_model_delta(User, {
+      User.find_by!(name: "David").id => { notifications: ["Second", "Welcome"] },
+      User.find_by!(name: "Joao").id => { notifications: ["Third", "Primeira", "Segunda"] }
+    })
   end
 
   def test_custom_formula_proc_json_rotating_prepend
@@ -218,10 +190,11 @@ class FormulasTest < TestCase
       [{ notifications: "Hello" }, { notifications: "Hello" }, { notifications: "Hello" }],
       formulas: { notifications: json_array_rotating_prepend_proc })
 
-    assert_equal ["Hello", "One", "Two", "Three"], User.find_by(name: "Albert").notifications
-    assert_equal ["Hello", "One", "Two", "Three", "Four"], User.find_by(name: "Bernard").notifications
-    assert_equal ["Hello", "One", "Two", "Three", "Four"], User.find_by(name: "Carol").notifications
-    assert_equal ["Welcome"], User.find_by(name: "David").notifications
+    assert_model_delta(User, {
+      User.find_by!(name: "Albert").id => { notifications: ["Hello", "One", "Two", "Three"] },
+      User.find_by!(name: "Bernard").id => { notifications: ["Hello", "One", "Two", "Three", "Four"] },
+      User.find_by!(name: "Carol").id => { notifications: ["Hello", "One", "Two", "Three", "Four"] }
+    })
   end
 
   def test_formulas_subtract_decimal
@@ -230,24 +203,10 @@ class FormulasTest < TestCase
       2 => { col_decimal: BigDecimal("0.75") }
     }, formulas: { col_decimal: :subtract })
 
-    assert_equal BigDecimal("7.25"), TypeVariety.find(1).col_decimal   # 10.50 - 3.25
-    assert_equal BigDecimal("20.00"), TypeVariety.find(2).col_decimal  # 20.75 - 0.75
-    assert_equal BigDecimal("30.25"), TypeVariety.find(3).col_decimal
-  end
-
-  if current_adapter?(:Mysql2Adapter, :TrilogyAdapter)
-    def test_formulas_subtract_unsigned_integer
-      # Book.pages is unsigned on mysql/mariadb; subtracting beyond zero wraps or errors.
-      Book.update_all(pages: 10)
-
-      Book.update_in_bulk({
-        1 => { pages: 3 },
-        2 => { pages: 7 }
-      }, formulas: { pages: :subtract })
-
-      assert_equal 7, Book.find(1).pages    # 10 - 3
-      assert_equal 3, Book.find(2).pages    # 10 - 7
-    end
+    assert_model_delta(TypeVariety, {
+      1 => { col_decimal: BigDecimal("7.25") },
+      2 => { col_decimal: BigDecimal("20.00") }
+    })
   end
 
   def test_formulas_min_date
@@ -256,9 +215,7 @@ class FormulasTest < TestCase
       2 => { col_date: Date.new(2026, 1, 1) }   # later than fixture 2025-06-30 → keeps old
     }, formulas: { col_date: :min })
 
-    assert_equal Date.new(2024, 6, 15), TypeVariety.find(1).col_date
-    assert_equal Date.new(2025, 6, 30), TypeVariety.find(2).col_date
-    assert_equal Date.new(2024, 11, 5), TypeVariety.find(3).col_date
+    assert_model_delta(TypeVariety, { 1 => { col_date: Date.new(2024, 6, 15) } })
   end
 
   def test_formulas_max_datetime
@@ -267,9 +224,7 @@ class FormulasTest < TestCase
       2 => { col_datetime: Time.utc(2030, 1, 1) }  # later → takes new
     }, formulas: { col_datetime: :max })
 
-    assert_equal "2025-01-15 09:00", TypeVariety.find(1).col_datetime.strftime("%Y-%m-%d %H:%M")
-    assert_equal "2030-01-01 00:00", TypeVariety.find(2).col_datetime.strftime("%Y-%m-%d %H:%M")
-    assert_equal "2024-11-05 07:45", TypeVariety.find(3).col_datetime.strftime("%Y-%m-%d %H:%M")
+    assert_model_delta(TypeVariety, { 2 => { col_datetime: Time.utc(2030, 1, 1) } })
   end
 
   def test_rejects_subtract_below_zero

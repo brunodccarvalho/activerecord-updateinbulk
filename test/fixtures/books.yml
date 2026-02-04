@@ -2,7 +2,7 @@ agile:
   author_id: 1
   id: 1
   name: "Agile Web Development with Rails"
-  format: "paperback"
+  format: paperback
   status: :published
   last_read: :read
   language: :english
@@ -10,23 +10,23 @@ agile:
   font_size: :medium
   difficulty: :medium
   boolean_status: :enabled
-  cover: "soft"
+  cover: soft
 
 rails:
   author_id: 1
   id: 2
   name: "Ruby for Rails"
-  format: "ebook"
-  status: "proposed"
-  last_read: "reading"
+  format: ebook
+  status: proposed
+  last_read: reading
 
 design:
   author_id: 1
   id: 3
   name: "Domain-Driven Design"
-  format: "hardcover"
+  format: hardcover
   status: 2
-  last_read: "forgotten"
+  last_read: forgotten
 
 database:
   author_id: 1

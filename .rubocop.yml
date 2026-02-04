@@ -8,6 +8,11 @@ plugins:
 AllCops:
   DisabledByDefault: true
   SuggestExtensions: false
+  Include:
+    - bin/*.rb
+    - "{lib,test,bench}/**/*.rb"
+    - Rakefile
+    - "*.gemspec"
 
 Performance:
   Exclude:

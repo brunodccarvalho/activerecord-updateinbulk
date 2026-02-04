@@ -61,21 +61,6 @@ ln -s "../../test/fixtures" "$APP/test/fixtures"
 
 echo "==> Creating initializers..."
 
-# TestSupport shim so symlinked schema.rb can call TestSupport::DatabaseConfig.adapter
-cat > "$APP/config/initializers/test_support_shim.rb" <<'RUBY'
-# frozen_string_literal: true
-
-# Shim so the symlinked test/schema.rb can reference
-# TestSupport::DatabaseConfig.adapter inside the Rails app.
-module TestSupport
-  module DatabaseConfig
-    def self.adapter
-      ActiveRecord::Base.connection.adapter_name.downcase
-    end
-  end
-end
-RUBY
-
 # Load model definitions from symlinked test/models.rb
 cat > "$APP/config/initializers/test_models.rb" <<'RUBY'
 # frozen_string_literal: true

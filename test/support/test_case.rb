@@ -5,32 +5,31 @@ require "active_record/testing/query_assertions"
 require "logger"
 require "stringio"
 require "active_support/test_case"
+require_relative "assertions_helper"
 
 class TestCase < ActiveSupport::TestCase
   include ActiveRecord::TestFixtures
   include ActiveRecord::Assertions::QueryAssertions
-  include TestSupport::AdapterHelper
-  extend TestSupport::AdapterHelper
+  include TestSupport::AssertionsHelper
 
   self.fixture_paths = [File.expand_path("../fixtures", __dir__)]
   self.use_transactional_tests = true
 
-  def self.disable_transactional_tests!
-    self.use_transactional_tests = false
+  setup do
+    Arel::Table.engine = nil # should not rely on the global Arel::Table.engine
+    @fixture_table_baseline = ActiveRecord::Base.descendants.index_by(&:name).transform_values! do |model|
+      snapshot_model(model)
+    end.freeze
   end
 
-  def self.enable_transactional_tests!
-    self.use_transactional_tests = true
+  teardown do
+    @fixture_table_baseline = nil
   end
 
-  def capture_log_output
-    output = StringIO.new
-    logger = Logger.new(output)
+  delegate :current_adapter?, to: TestSupport::Database
 
-    previous_logger = ActiveRecord::Base.logger
-    ActiveRecord::Base.logger = logger
-    yield output
-  ensure
-    ActiveRecord::Base.logger = previous_logger
+  def assert_model_delta(model, differences)
+    original = @fixture_table_baseline.fetch(model.name)
+    assert_model_snapshot_delta(model, original, snapshot_model(model), differences)
   end
 end

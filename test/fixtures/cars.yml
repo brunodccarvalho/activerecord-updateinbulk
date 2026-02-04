@@ -12,3 +12,9 @@ ford:
   make: Ford
   model: Mustang
   year: 1964
+
+tesla:
+  make: Tesla
+  model: Model 3
+  year: 2017
+

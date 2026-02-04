@@ -12,6 +12,9 @@ one:
   col_date: "2025-01-15"
   col_datetime: "2025-01-15 09:00:00"
   col_time: "09:00:00"
+  <% unless TestSupport::Database.current_adapter?(:SQLite3Adapter) %>
+  col_timestampz: "2025-01-15 09:00:00"
+  <% end %>
   col_boolean: true
 
 two:
@@ -28,6 +31,9 @@ two:
   col_date: "2025-06-30"
   col_datetime: "2025-06-30 18:30:00"
   col_time: "18:30:00"
+  <% unless TestSupport::Database.current_adapter?(:SQLite3Adapter) %>
+  col_timestampz: "2025-06-30 18:30:00"
+  <% end %>
   col_boolean: false
 
 three:
@@ -44,6 +50,9 @@ three:
   col_date: "2024-11-05"
   col_datetime: "2024-11-05 07:45:00"
   col_time: "07:45:00"
+  <% unless TestSupport::Database.current_adapter?(:SQLite3Adapter) %>
+  col_timestampz: "2024-11-05 07:45:00"
+  <% end %>
   col_boolean: true
 
 four:
@@ -60,4 +69,7 @@ four:
   col_date: "2026-02-10"
   col_datetime: "2026-02-10 12:00:00"
   col_time: "12:00:00"
+  <% unless TestSupport::Database.current_adapter?(:SQLite3Adapter) %>
+  col_timestampz: "2026-02-10 12:00:00"
+  <% end %>
   col_boolean:

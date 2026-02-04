@@ -1,11 +1,9 @@
 # frozen_string_literal: true
 
+require_relative "support/database"
+
 ActiveRecord::Schema.define do
-  unsigned = if ["mysql2", "trilogy"].include?(TestSupport::DatabaseConfig.adapter)
-    { unsigned: true }
-  else
-    {}
-  end
+  unsigned = TestSupport::Database.mysql? ? { unsigned: true } : {}
 
   create_table :users, force: true do |t|
     t.string :name
@@ -38,7 +36,7 @@ ActiveRecord::Schema.define do
     t.datetime :updated_at
     t.date :updated_on
 
-    if TestSupport::DatabaseConfig.adapter == "sqlite3"
+    if TestSupport::Database.sqlite?
       t.check_constraint "length(name) <= 48", name: "books_name_length"
     end
   end
@@ -68,8 +66,7 @@ ActiveRecord::Schema.define do
   create_table :posts, force: true do |t|
     t.references :author
     t.string :title, null: false
-    t.text    :body, null: false
-    t.string  :type
+    t.text :body, null: false
   end
 
   create_table :pets, primary_key: :pet_id, force: true do |t|
@@ -82,6 +79,8 @@ ActiveRecord::Schema.define do
     t.integer :pet_id, :integer
     t.timestamps null: false
   end
+
+  create_enum :launch_stage, %w[alpha beta gamma omega theta], if_not_exists: true
 
   create_table :type_varieties, force: true do |t|
     t.string  :col_string
@@ -100,6 +99,23 @@ ActiveRecord::Schema.define do
     t.datetime :col_datetime
     t.time     :col_time
 
+    if TestSupport::Database.postgres?
+      t.column :col_enum, :launch_stage
+    elsif TestSupport::Database.mysql?
+      t.column :col_enum, "enum('alpha','beta','gamma','omega','theta')"
+    end
+
+    if TestSupport::Database.postgres?
+      t.column :col_timestampz, :timestamptz
+    elsif TestSupport::Database.mysql?
+      t.column :col_timestampz, :timestamp
+    end
+
+    if TestSupport::Database.mysql?
+      t.column :col_geometry, :geometry
+    end
+
+    t.binary  :col_binary
     t.boolean :col_boolean
   end
 

@@ -6,14 +6,11 @@ require "active_record"
 require "active_record/fixtures"
 require "activerecord-updateinbulk"
 
-require_relative "../test/support/adapter_helper"
-require_relative "../test/support/database_config"
-require_relative "../test/support/schema_loader"
+require_relative "../test/support/database"
 require_relative "../test/models"
 
-adapter = ENV.fetch("ARCONN", "sqlite3")
-ActiveRecord::Base.establish_connection(TestSupport::DatabaseConfig.config_for(adapter))
-TestSupport::SchemaLoader.apply_schema!
+ActiveRecord::Base.establish_connection(TestSupport::Database.config)
+TestSupport::Database.apply_schema!
 
 fixture_paths = [File.expand_path("../test/fixtures", __dir__)]
 fixture_names = Dir[File.join(fixture_paths.first, "*.yml")].sort.map do |path|

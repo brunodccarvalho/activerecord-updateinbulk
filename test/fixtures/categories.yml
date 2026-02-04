@@ -1,0 +1,14 @@
+first:
+  id: 1
+  name: First
+  type: SpecialCategory
+
+second:
+  id: 2
+  name: Second
+  type: SpecialCategory
+
+third:
+  id: 3
+  name: Third
+  type: Category

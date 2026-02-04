@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+set -e
+
+DATABASE="$1"
+shift || true
+
+if [ "$#" -eq 0 ]; then
+  echo "Usage: $0 <database> <command> [args...]"
+  exit 1
+fi
+
+case "$DATABASE" in
+  mysql|mysql2|trilogy|trilogy-mysql)
+    export MYSQL_HOST=127.0.0.1
+    export MYSQL_PORT=3336
+    export MYSQL_USER=root
+    export MYSQL_PASSWORD=mysql
+    ;;
+  mariadb|trilogy-mariadb)
+    export MYSQL_HOST=127.0.0.1
+    export MYSQL_PORT=3337
+    export MYSQL_USER=root
+    export MYSQL_PASSWORD=mariadb
+    ;;
+  postgres|postgresql)
+    export POSTGRES_HOST=127.0.0.1
+    export POSTGRES_PORT=3338
+    export POSTGRES_USER=postgres
+    export POSTGRES_PASSWORD=postgres
+    ;;
+  sqlite|sqlite3)
+    ;;
+  *)
+    echo "Unknown database target: $DATABASE"
+    echo "Supported targets: mysql, mariadb, postgresql, sqlite3, trilogy-{mysql,mariadb}"
+    exit 1
+    ;;
+esac
+
+exec "$@"

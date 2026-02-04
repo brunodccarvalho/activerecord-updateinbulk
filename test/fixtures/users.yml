@@ -1,10 +1,12 @@
 david:
+  id: 1
   name: David
   <% if ActiveRecord::Base.connection.supports_json? %>
   notifications: ["Welcome"]
   <% end %>
 
 joao:
+  id: 2
   name: Joao
   <% if ActiveRecord::Base.connection.supports_json? %>
   preferences:
@@ -17,18 +19,21 @@ joao:
   <% end %>
 
 albert:
+  id: 3
   name: Albert
   <% if ActiveRecord::Base.connection.supports_json? %>
   notifications: ["One", "Two", "Three"]
   <% end %>
 
 bernard:
+  id: 4
   name: Bernard
   <% if ActiveRecord::Base.connection.supports_json? %>
   notifications: ["One", "Two", "Three", "Four", "Five"]
   <% end %>
 
 carol:
+  id: 5
   name: Carol
   <% if ActiveRecord::Base.connection.supports_json? %>
   notifications: ["One", "Two", "Three", "Four", "Five", "Six"]

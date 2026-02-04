@@ -5,9 +5,7 @@ require "benchmark/ips"
 require "active_record"
 require "activerecord-updateinbulk"
 
-require_relative "../test/support/adapter_helper"
-require_relative "../test/support/database_config"
-require_relative "../test/support/schema_loader"
+require_relative "../test/support/database"
 require_relative "../test/models"
 
 # StreamReport that suppresses warmup output but keeps results.
@@ -21,10 +19,9 @@ end
 module BenchHelper
   module_function
 
-  def setup_database!(adapter = nil)
-    adapter ||= TestSupport::DatabaseConfig.adapter
-    ActiveRecord::Base.establish_connection(TestSupport::DatabaseConfig.config_for(adapter))
-    TestSupport::SchemaLoader.apply_schema!
+  def setup_database!
+    ActiveRecord::Base.establish_connection(TestSupport::Database.config)
+    TestSupport::Database.apply_schema!
     ActiveRecord::Base.logger = nil
     adapter
   end
