@@ -29,3 +29,35 @@ two:
   col_datetime: "2025-06-30 18:30:00"
   col_time: "18:30:00"
   col_boolean: false
+
+three:
+  id: 3
+  col_string: "omega"
+  col_varchar: "short_c"
+  col_char: "char_c"
+  col_text: "text omega"
+  col_integer: 30
+  col_smallint: 3
+  col_bigint: 4398046511104
+  col_float: 3.5
+  col_decimal: 30.25
+  col_date: "2024-11-05"
+  col_datetime: "2024-11-05 07:45:00"
+  col_time: "07:45:00"
+  col_boolean: true
+
+four:
+  id: 4
+  col_string: "theta"
+  col_varchar: "short_d"
+  col_char: "char_d"
+  col_text: "text theta"
+  col_integer: 40
+  col_smallint: 4
+  col_bigint: 8796093022208
+  col_float: 4.5
+  col_decimal: 40.75
+  col_date: "2026-02-10"
+  col_datetime: "2026-02-10 12:00:00"
+  col_time: "12:00:00"
+  col_boolean:

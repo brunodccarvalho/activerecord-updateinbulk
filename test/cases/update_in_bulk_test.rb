@@ -32,6 +32,7 @@ class UpdateInBulkTest < TestCase
     assert_equal "Scrum Development", Book.find(1).name
     assert_equal "Django for noobies", Book.find(2).name
     assert_equal "Domain-Driven Design", Book.find(3).name
+    assert_equal "Thoughtleadering", Book.find(4).name
   end
 
   def test_separated_format
@@ -218,6 +219,7 @@ class UpdateInBulkTest < TestCase
 
     comments = Comment.where(body: ["A", "B", "C"]).pluck(:id, :body).sort
     assert_equal [[6, "B"], [7, "B"], [8, "A"], [10, "C"]], comments
+    assert_equal "Don't think too hard", Comment.find(3).body
   end
 
   def test_does_not_support_referential_arel_sql_in_conditions
@@ -245,6 +247,7 @@ class UpdateInBulkTest < TestCase
     ])
     assert_equal "First comment", Comment.find(1).body
     assert_equal "Second comment", Comment.find(2).body
+    assert_equal "Don't think too hard", Comment.find(3).body
   end
 
   def test_supports_non_referential_arel_sql_in_values
@@ -254,6 +257,7 @@ class UpdateInBulkTest < TestCase
     ])
     assert_equal "Agile Web Development with Rails", Comment.find(1).body
     assert_equal "Second comment", Comment.find(2).body
+    assert_equal "Don't think too hard", Comment.find(3).body
   end
 
   def test_optional_keys_without_nulls
@@ -268,6 +272,7 @@ class UpdateInBulkTest < TestCase
     assert_equal %[invisible french easy hard large], books[0].parameters
     assert_equal %[visible english medium hard medium], books[1].parameters
     assert_equal %[visible spanish easy soft large], books[2].parameters
+    assert_equal %[visible english medium soft medium], Book.find(1).parameters
   end
 
   def test_optional_keys_with_nulls
@@ -282,6 +287,7 @@ class UpdateInBulkTest < TestCase
     assert_equal %[invisible - easy hard large], books[0].parameters
     assert_equal %[visible english - hard medium], books[1].parameters
     assert_equal %[visible spanish easy soft -], books[2].parameters
+    assert_equal %[visible english medium soft medium], Book.find(1).parameters
   end
 
   def test_optional_keys_with_arel_sql_null
@@ -294,6 +300,7 @@ class UpdateInBulkTest < TestCase
 
     assert_equal "default", Book.find(2).format
     assert_nil Book.find(3).format
+    assert_equal "default", Book.find(1).format
   end
 
   def test_resets_relation
@@ -417,6 +424,10 @@ class UpdateInBulkTest < TestCase
       2 => { name: "Rex" },
       3 => { name: "Rex" }
     })
+    assert_equal "Rex", Pet.find(1).name
+    assert_equal "Rex", Pet.find(3).name
+    assert_equal "chew", Pet.find(2).name
+    assert_equal "bulbul", Pet.find(4).name
   end
 
   def test_with_left_outer_joins
@@ -428,6 +439,10 @@ class UpdateInBulkTest < TestCase
       2 => { name: "Rex" },
       3 => { name: "Rex" }
     })
+    assert_equal "Rex", Pet.find(1).name
+    assert_equal "Rex", Pet.find(3).name
+    assert_equal "chew", Pet.find(2).name
+    assert_equal "bulbul", Pet.find(4).name
   end
 
   def test_with_includes
@@ -438,6 +453,9 @@ class UpdateInBulkTest < TestCase
       1 => { name: "Rex" },
       2 => { name: "Rex" }
     })
+    assert_equal "Rex", Pet.find(1).name
+    assert_equal "chew", Pet.find(2).name
+    assert_equal "mochi", Pet.find(3).name
   end
 
   def test_same_column_as_condition_and_assign
@@ -474,6 +492,7 @@ class UpdateInBulkTest < TestCase
     assert_equal "inline A", Comment.find(8).body  # Comment, post_id=4
     assert_equal "inline B", Comment.find(6).body  # SpecialComment, post_id=4
     assert_equal "inline B", Comment.find(7).body  # SpecialComment, post_id=4
+    assert_equal "Don't think too hard", Comment.find(3).body
   end
 
   def test_constant_assign_column_is_inlined
@@ -490,6 +509,7 @@ class UpdateInBulkTest < TestCase
     books = Book.where(id: 1..3).order(:id).to_a
     assert_equal %w[Book-A Book-B Book-C], books.map(&:name)
     assert_equal %w[written written written], books.map(&:status)
+    assert_equal "Thoughtleadering", Book.find(4).name
   end
 
   def test_formula_prevents_assign_inlining
@@ -500,6 +520,7 @@ class UpdateInBulkTest < TestCase
 
     assert_equal 15, ProductStock.find("Tree").quantity
     assert_equal 55, ProductStock.find("Wreath").quantity
+    assert_equal 10, ProductStock.find("Toy car").quantity
   end
 
   def test_constant_assign_with_mixed_types_is_inlined
@@ -513,6 +534,7 @@ class UpdateInBulkTest < TestCase
     books = Book.where(id: [1, 2]).order(:id).to_a
     assert_equal %w[Book\ A Book\ B], books.map(&:name)
     assert_equal %w[written written], books.map(&:status)
+    assert_equal "Domain-Driven Design", Book.find(3).name
   end
 
   def test_mixed_constant_and_variable_columns
@@ -525,6 +547,7 @@ class UpdateInBulkTest < TestCase
     assert_equal %w[Updated-1 Updated-2], books.map(&:name)
     assert_equal %w[written written], books.map(&:status)
     assert_equal %w[soft hard], books.map(&:cover)
+    assert_equal "Domain-Driven Design", Book.find(3).name
   end
 
   def test_all_columns_constant_skips_optimization
@@ -537,6 +560,7 @@ class UpdateInBulkTest < TestCase
       2 => { status: :published }
     })
     assert_equal %w[published published], Book.where(id: [1, 2]).order(:id).pluck(:status)
+    assert_equal "published", Book.find(3).status
   end
 
   def test_single_row_without_formulas_uses_simple_update_without_values_table
@@ -549,6 +573,7 @@ class UpdateInBulkTest < TestCase
     end
 
     assert_equal "Simple Update", Book.find(1).name
+    assert_equal "Ruby for Rails", Book.find(2).name
   end
 
   def test_single_row_with_multiple_conditions_uses_simple_update_without_values_table
@@ -561,6 +586,7 @@ class UpdateInBulkTest < TestCase
     end
 
     assert_equal "Simple Conditions", Book.find(1).name
+    assert_equal "Ruby for Rails", Book.find(2).name
   end
 
   def test_single_row_with_formulas_does_not_use_simple_update_optimization
@@ -571,6 +597,7 @@ class UpdateInBulkTest < TestCase
     end
 
     assert_equal 11, ProductStock.find("Tree").quantity
+    assert_equal 10, ProductStock.find("Toy train").quantity
   end
 
   def test_single_row_simple_update_no_formulas
@@ -582,6 +609,7 @@ class UpdateInBulkTest < TestCase
     end
 
     assert_equal "Separated Simple", Book.find(2).name
+    assert_equal "Agile Web Development with Rails", Book.find(1).name
   end
 
   def test_single_row_simple_update_with_timestamps
@@ -593,6 +621,7 @@ class UpdateInBulkTest < TestCase
     end
 
     assert_equal "Separated Simple", Book.find(2).name
+    assert_equal "Agile Web Development with Rails", Book.find(1).name
   end
 
   def test_single_row_simple_update_with_explicit_nil_assign
@@ -645,6 +674,7 @@ class UpdateInBulkTest < TestCase
 
     assert_equal subquery, Post.find(1).title
     assert_equal "Agile Web Development with Rails", Post.find(2).title
+    assert_equal "sti comments", Post.find(4).title
   end
 
   def test_arel_sql_prevents_condition_inlining
@@ -657,6 +687,7 @@ class UpdateInBulkTest < TestCase
 
     assert_includes ["A", "C"], Post.find(7).body
     assert_equal "B", Post.find(1).body
+    assert_equal "Like I hopefully always am", Post.find(2).body
   end
 
   def test_constant_condition_and_constant_assign_together

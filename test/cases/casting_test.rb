@@ -43,6 +43,7 @@ class CastingTest < TestCase
 
     assert_equal "gamma short_g char_g text gamma", TypeVariety.find(1).string_values
     assert_equal "delta short_d char_d text delta", TypeVariety.find(2).string_values
+    assert_equal "omega short_c char_c text omega", TypeVariety.find(3).string_values
   end
 
   def test_typecast_assigns_integer_family
@@ -53,6 +54,7 @@ class CastingTest < TestCase
 
     assert_equal "42 3 3298534883328", TypeVariety.find(1).integer_values
     assert_equal "99 4 1099511627776", TypeVariety.find(2).integer_values
+    assert_equal "30 3 4398046511104", TypeVariety.find(3).integer_values
   end
 
   def test_typecast_assigns_float_and_decimal
@@ -63,6 +65,7 @@ class CastingTest < TestCase
 
     assert_equal "3.14 99.95", TypeVariety.find(1).numeric_values
     assert_equal "2.72 0.01", TypeVariety.find(2).numeric_values
+    assert_equal "3.50 30.25", TypeVariety.find(3).numeric_values
   end
 
   def test_typecast_assigns_date_and_time
@@ -73,6 +76,7 @@ class CastingTest < TestCase
 
     assert_equal "2024-12-25 2024-12-25 10:30 14:45", TypeVariety.find(1).temporal_values
     assert_equal "2024-07-04 2024-07-04 20:00 08:15", TypeVariety.find(2).temporal_values
+    assert_equal "2024-11-05 2024-11-05 07:45 07:45", TypeVariety.find(3).temporal_values
   end
 
   def test_typecast_assigns_boolean_and_integer_coercion
@@ -83,6 +87,7 @@ class CastingTest < TestCase
 
     assert_equal false, TypeVariety.find(1).col_boolean
     assert_equal true, TypeVariety.find(2).col_boolean
+    assert_equal true, TypeVariety.find(3).col_boolean
 
     # swap back using integer coercion
     TypeVariety.update_in_bulk({
@@ -92,6 +97,7 @@ class CastingTest < TestCase
 
     assert_equal true, TypeVariety.find(1).col_boolean
     assert_equal false, TypeVariety.find(2).col_boolean
+    assert_equal true, TypeVariety.find(3).col_boolean
   end
 
   def test_typecast_assigns_nil_across_types
@@ -110,6 +116,7 @@ class CastingTest < TestCase
 
     assert_equal TypeVariety.all_nil, TypeVariety.find(1).all_values
     assert_equal TypeVariety.all_nil, TypeVariety.find(2).all_values
+    assert_equal "omega short_c char_c text omega 30 3 4398046511104 3.50 30.25 2024-11-05 2024-11-05 07:45 07:45 true", TypeVariety.find(3).all_values
   end
 
   def test_typecast_assigns_full_null_column
@@ -122,6 +129,8 @@ class CastingTest < TestCase
     assert_equal 11, TypeVariety.find(1).col_integer
     assert_nil TypeVariety.find(2).col_text
     assert_equal 22, TypeVariety.find(2).col_integer
+    assert_equal "text omega", TypeVariety.find(3).col_text
+    assert_equal 30, TypeVariety.find(3).col_integer
   end
 
   def test_typecast_assigns_full_null_integer_column
@@ -134,6 +143,8 @@ class CastingTest < TestCase
     assert_equal "alpha", TypeVariety.find(1).col_text
     assert_nil TypeVariety.find(2).col_integer
     assert_equal "beta", TypeVariety.find(2).col_text
+    assert_equal 30, TypeVariety.find(3).col_integer
+    assert_equal "text omega", TypeVariety.find(3).col_text
   end
 
   def test_typecast_assigns_full_null_boolean_column
@@ -146,6 +157,8 @@ class CastingTest < TestCase
     assert_equal "alpha", TypeVariety.find(1).col_text
     assert_nil TypeVariety.find(2).col_boolean
     assert_equal "beta", TypeVariety.find(2).col_text
+    assert_equal true, TypeVariety.find(3).col_boolean
+    assert_equal "text omega", TypeVariety.find(3).col_text
   end
 
   def test_typecast_assigns_string_truncation
@@ -180,6 +193,7 @@ class CastingTest < TestCase
       [{ col_char: "char_b" }, { col_text: "matched by char" }]
     ])
     assert_equal "matched by char", TypeVariety.find(2).col_text
+    assert_equal "text omega", TypeVariety.find(3).col_text
   end
 
   def test_typecast_conditions_integer_family
@@ -200,6 +214,7 @@ class CastingTest < TestCase
       [{ col_bigint: 1099511627776 }, { col_text: "bigint match" }]
     ])
     assert_equal "bigint match", TypeVariety.find(1).col_text
+    assert_equal "text omega", TypeVariety.find(3).col_text
   end
 
   def test_typecast_conditions_float_and_decimal
@@ -214,6 +229,7 @@ class CastingTest < TestCase
       [{ col_decimal: BigDecimal("20.75") }, { col_text: "decimal match" }]
     ])
     assert_equal "decimal match", TypeVariety.find(2).col_text
+    assert_equal "text omega", TypeVariety.find(3).col_text
   end
 
   def test_typecast_conditions_date_and_time
@@ -228,6 +244,7 @@ class CastingTest < TestCase
       [{ col_datetime: Time.utc(2025, 6, 30, 18, 30, 0) }, { col_text: "datetime match" }]
     ])
     assert_equal "datetime match", TypeVariety.find(2).col_text
+    assert_equal "text omega", TypeVariety.find(3).col_text
   end
 
   def test_typecast_conditions_boolean
@@ -238,6 +255,8 @@ class CastingTest < TestCase
 
     assert_equal "bool true match", TypeVariety.find(1).col_text
     assert_equal "bool false match", TypeVariety.find(2).col_text
+    assert_equal "bool true match", TypeVariety.find(3).col_text
+    assert_equal "text theta", TypeVariety.find(4).col_text
   end
 
   def test_condition_with_oversized_string_matches_zero_rows
@@ -250,6 +269,7 @@ class CastingTest < TestCase
     assert_equal 1, affected
     assert_equal "should match", TypeVariety.find(1).col_text
     assert_not_equal "should not match", TypeVariety.find(2).col_text
+    assert_equal "text omega", TypeVariety.find(3).col_text
   end
 
   # == Group 3: Formula-side typecasting ==
@@ -264,6 +284,8 @@ class CastingTest < TestCase
     assert_equal "2.00 11.75", TypeVariety.find(1).numeric_values         # 1.5+0.5 10.50+1.25
     assert_equal "23 3 2199023255752", TypeVariety.find(2).integer_values # 20+3 2+1 2^41+200
     assert_equal "2.75 23.25", TypeVariety.find(2).numeric_values         # 2.5+0.25 20.75+2.50
+    assert_equal "30 3 4398046511104", TypeVariety.find(3).integer_values
+    assert_equal "3.50 30.25", TypeVariety.find(3).numeric_values
   end
 
   def test_typecast_formula_add_with_optional_keys
@@ -275,6 +297,8 @@ class CastingTest < TestCase
     assert_equal 15, TypeVariety.find(1).col_integer
     assert_equal 20, TypeVariety.find(2).col_integer
     assert_equal "replaced", TypeVariety.find(2).col_text
+    assert_equal 30, TypeVariety.find(3).col_integer
+    assert_equal "text omega", TypeVariety.find(3).col_text
   end
 
   def test_typecast_formula_concat_append_string_family
@@ -285,5 +309,6 @@ class CastingTest < TestCase
 
     assert_equal "alpha_suffix short_a char_a text alpha_suffix", TypeVariety.find(1).string_values
     assert_equal "beta_end short_b char_b text beta_end", TypeVariety.find(2).string_values
+    assert_equal "omega short_c char_c text omega", TypeVariety.find(3).string_values
   end
 end

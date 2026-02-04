@@ -18,6 +18,7 @@ class FormulasTest < TestCase
 
     assert_equal 15, ProductStock.find("Tree").quantity
     assert_equal 13, ProductStock.find("Toy train").quantity
+    assert_equal 10, ProductStock.find("Toy car").quantity
   end
 
   def test_formulas_subtract
@@ -28,6 +29,7 @@ class FormulasTest < TestCase
 
     assert_equal 70, ProductStock.find("Christmas balls").quantity
     assert_equal 45, ProductStock.find("Wreath").quantity
+    assert_equal 400, ProductStock.find("Tree lights").quantity
   end
 
   def test_formulas_concat_append
@@ -38,6 +40,7 @@ class FormulasTest < TestCase
 
     assert_equal "Agile Web Development with Rails (2nd edition)", Book.find(1).name
     assert_equal "Ruby for Rails (revised)", Book.find(2).name
+    assert_equal "Domain-Driven Design", Book.find(3).name
   end
 
   def test_formulas_concat_prepend
@@ -48,6 +51,7 @@ class FormulasTest < TestCase
 
     assert_equal "Classic: Agile Web Development with Rails", Book.find(1).name
     assert_equal "Classic: Ruby for Rails", Book.find(2).name
+    assert_equal "Domain-Driven Design", Book.find(3).name
   end
 
   def test_formulas_min
@@ -58,6 +62,7 @@ class FormulasTest < TestCase
 
     assert_equal 5, ProductStock.find("Tree").quantity
     assert_equal 10, ProductStock.find("Toy train").quantity
+    assert_equal 0, ProductStock.find("Stockings").quantity
   end
 
   def test_formulas_max
@@ -68,6 +73,7 @@ class FormulasTest < TestCase
 
     assert_equal 5, ProductStock.find("Stockings").quantity
     assert_equal 2, ProductStock.find("Sweater").quantity
+    assert_equal 10, ProductStock.find("Tree").quantity
   end
 
   def test_formulas_applied_only_to_specified_columns
@@ -83,6 +89,7 @@ class FormulasTest < TestCase
     assert_equal 100, books[0].pages
     assert_equal "Ruby for Rails Y", books[1].name
     assert_equal 200, books[1].pages
+    assert_equal "Domain-Driven Design", Book.find(3).name
   end
 
   def test_formulas_skipped_for_rows_missing_formula_column
@@ -93,6 +100,7 @@ class FormulasTest < TestCase
 
     assert_equal "Agile Web Development with Rails X", Book.find(1).name
     assert_equal "Ruby for Rails", Book.find(2).name
+    assert_equal "Thoughtleadering", Book.find(4).name
   end
 
   def test_formulas_with_paired_format
@@ -103,6 +111,7 @@ class FormulasTest < TestCase
 
     assert_equal 15, ProductStock.find("Tree").quantity
     assert_equal 13, ProductStock.find("Toy train").quantity
+    assert_equal 10, ProductStock.find("Toy car").quantity
   end
 
   def test_formulas_with_separated_format
@@ -110,6 +119,7 @@ class FormulasTest < TestCase
 
     assert_equal 15, ProductStock.find("Tree").quantity
     assert_equal 13, ProductStock.find("Toy train").quantity
+    assert_equal 10, ProductStock.find("Toy car").quantity
   end
 
   def test_rejects_unknown_formulas
@@ -136,6 +146,7 @@ class FormulasTest < TestCase
 
     assert_equal 15, ProductStock.find("Tree").quantity
     assert_equal 13, ProductStock.find("Toy train").quantity
+    assert_equal 10, ProductStock.find("Toy car").quantity
   end
 
   def test_custom_formula_proc_arity_3
@@ -150,6 +161,7 @@ class FormulasTest < TestCase
 
     assert_equal "Agile Web Development with Rails (custom)", Book.find(1).name
     assert_equal "Ruby for Rails (custom)", Book.find(2).name
+    assert_equal "Domain-Driven Design", Book.find(3).name
   end
 
   def test_custom_formula_proc_wrong_arity
@@ -182,6 +194,7 @@ class FormulasTest < TestCase
 
     assert_equal "Agile Web Development with Rails X", Book.find(1).name
     assert_equal "Ruby for Rails", Book.find(2).name
+    assert_equal "Thoughtleadering", Book.find(4).name
   end
 
   def test_custom_formula_proc_json_append
@@ -194,6 +207,7 @@ class FormulasTest < TestCase
 
     assert_equal ["Second", "Welcome"], User.find_by(name: "David").notifications
     assert_equal ["Third", "Primeira", "Segunda"], User.find_by(name: "Joao").notifications
+    assert_equal ["One", "Two", "Three"], User.find_by(name: "Albert").notifications
   end
 
   def test_custom_formula_proc_json_rotating_prepend
@@ -207,6 +221,7 @@ class FormulasTest < TestCase
     assert_equal ["Hello", "One", "Two", "Three"], User.find_by(name: "Albert").notifications
     assert_equal ["Hello", "One", "Two", "Three", "Four"], User.find_by(name: "Bernard").notifications
     assert_equal ["Hello", "One", "Two", "Three", "Four"], User.find_by(name: "Carol").notifications
+    assert_equal ["Welcome"], User.find_by(name: "David").notifications
   end
 
   def test_formulas_subtract_decimal
@@ -217,6 +232,7 @@ class FormulasTest < TestCase
 
     assert_equal BigDecimal("7.25"), TypeVariety.find(1).col_decimal   # 10.50 - 3.25
     assert_equal BigDecimal("20.00"), TypeVariety.find(2).col_decimal  # 20.75 - 0.75
+    assert_equal BigDecimal("30.25"), TypeVariety.find(3).col_decimal
   end
 
   if current_adapter?(:Mysql2Adapter, :TrilogyAdapter)
@@ -242,6 +258,7 @@ class FormulasTest < TestCase
 
     assert_equal Date.new(2024, 6, 15), TypeVariety.find(1).col_date
     assert_equal Date.new(2025, 6, 30), TypeVariety.find(2).col_date
+    assert_equal Date.new(2024, 11, 5), TypeVariety.find(3).col_date
   end
 
   def test_formulas_max_datetime
@@ -252,6 +269,7 @@ class FormulasTest < TestCase
 
     assert_equal "2025-01-15 09:00", TypeVariety.find(1).col_datetime.strftime("%Y-%m-%d %H:%M")
     assert_equal "2030-01-01 00:00", TypeVariety.find(2).col_datetime.strftime("%Y-%m-%d %H:%M")
+    assert_equal "2024-11-05 07:45", TypeVariety.find(3).col_datetime.strftime("%Y-%m-%d %H:%M")
   end
 
   def test_rejects_subtract_below_zero
