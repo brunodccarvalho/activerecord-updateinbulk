@@ -30,6 +30,23 @@ class TimestampsTest < TestCase
     assert_in_delta updated_at, Book.find(101).updated_at, 1
   end
 
+  def test_single_row_noop_does_not_touch_timestamps_or_other_rows
+    updated_at_target = Time.now.utc - 5.years
+    updated_at_other = Time.now.utc - 4.years
+    Book.insert_all!([
+      { id: 101, name: "Out of the Silent Planet", published_on: Date.new(1938, 4, 1), updated_at: updated_at_target, updated_on: updated_at_target.to_date },
+      { id: 102, name: "Perelandra", published_on: Date.new(1943, 1, 1), updated_at: updated_at_other, updated_on: updated_at_other.to_date }
+    ])
+
+    Book.update_in_bulk({ 101 => { name: "Out of the Silent Planet", published_on: Date.new(1938, 4, 1) } }, record_timestamps: true)
+
+    assert_in_delta updated_at_target, Book.find(101).updated_at, 1
+    assert_equal updated_at_target.to_date, Book.find(101).updated_on
+    assert_in_delta updated_at_other, Book.find(102).updated_at, 1
+    assert_equal updated_at_other.to_date, Book.find(102).updated_on
+    assert_equal "Perelandra", Book.find(102).name
+  end
+
   def test_touches_updated_at_and_updated_on_and_not_created_at_when_values_change
     Book.insert_all [{ id: 101, name: "Out of the Silent Planet", published_on: Date.new(1938, 4, 1), created_at: 8.years.ago, updated_at: 5.years.ago, updated_on: 5.years.ago }]
     Book.update_in_bulk({ 101 => { name: "Out of the Silent Planet", published_on: Date.new(1938, 4, 8) } }, record_timestamps: true)

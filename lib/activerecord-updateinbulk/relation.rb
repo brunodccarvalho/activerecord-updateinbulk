@@ -102,7 +102,7 @@ module ActiveRecord::UpdateInBulk
         arel = eager_loading? ? apply_join_dependency.arel : arel()
         arel.source.left = table
 
-        values_table, join_conditions, set_assignments = Builder.new(
+        values_table, conditions, set_assignments = Builder.new(
           self,
           c,
           conditions,
@@ -110,7 +110,11 @@ module ActiveRecord::UpdateInBulk
           record_timestamps:,
           formulas:
         ).build_arel
-        arel = arel.join(values_table).on(*join_conditions)
+        if values_table
+          arel = arel.join(values_table).on(*conditions)
+        else
+          conditions.each { |condition| arel.where(condition) }
+        end
 
         key = if model.composite_primary_key?
           primary_key.map { |pk| table[pk] }

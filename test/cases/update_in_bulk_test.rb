@@ -222,24 +222,38 @@ class UpdateInBulkTest < TestCase
 
   def test_does_not_support_referential_arel_sql_in_conditions
     assert_raises(ActiveRecord::StatementInvalid) do
-      Comment.update_in_bulk [[{ parent_id: Arel.sql("comments.post_id") }, { body: "Root comment" }]]
+      Comment.update_in_bulk([
+        [{ parent_id: 1 }, { body: "Normal comment" }],
+        [{ parent_id: Arel.sql("comments.post_id") }, { body: "Root comment" }]
+      ])
     end
   end
 
   def test_does_not_support_referential_arel_sql_in_values
     assert_raises(ActiveRecord::StatementInvalid) do
-      Book.update_in_bulk [[{ name: "Joao" }, { name: Arel.sql("UPPER(name)") }]]
+      Book.update_in_bulk([
+        [{ id: 1 }, { name: "Joao" }],
+        [{ id: 2 }, { name: Arel.sql("UPPER(name)") }]
+      ])
     end
   end
 
   def test_supports_non_referential_arel_sql_in_conditions
-    Comment.update_in_bulk [[{ id: Arel.sql("(SELECT id FROM books ORDER BY id ASC LIMIT 1)") }, { body: "First comment" }]]
+    Comment.update_in_bulk([
+      [{ id: 2 }, { body: "Second comment" }],
+      [{ id: Arel.sql("(SELECT id FROM books ORDER BY id ASC LIMIT 1)") }, { body: "First comment" }]
+    ])
     assert_equal "First comment", Comment.find(1).body
+    assert_equal "Second comment", Comment.find(2).body
   end
 
   def test_supports_non_referential_arel_sql_in_values
-    Comment.update_in_bulk [[{ id: 1 }, { body: Arel.sql("(SELECT name FROM books WHERE id = 1)") }]]
+    Comment.update_in_bulk([
+      [{ id: 1 }, { body: Arel.sql("(SELECT name FROM books WHERE id = 1)") }],
+      [{ id: 2 }, { body: "Second comment" }]
+    ])
     assert_equal "Agile Web Development with Rails", Comment.find(1).body
+    assert_equal "Second comment", Comment.find(2).body
   end
 
   def test_optional_keys_without_nulls
@@ -523,6 +537,102 @@ class UpdateInBulkTest < TestCase
       2 => { status: :published }
     })
     assert_equal %w[published published], Book.where(id: [1, 2]).order(:id).pluck(:status)
+  end
+
+  def test_single_row_without_formulas_uses_simple_update_without_values_table
+    capture_log_output do |output|
+      Book.update_in_bulk({ 1 => { name: "Simple Update" } })
+      sql_log = output.string
+      assert_match(/\bUPDATE\b/i, sql_log)
+      assert_no_match(/\bVALUES\b/i, sql_log)
+      assert_no_match(/\bJOIN\b/i, sql_log)
+    end
+
+    assert_equal "Simple Update", Book.find(1).name
+  end
+
+  def test_single_row_with_multiple_conditions_uses_simple_update_without_values_table
+    capture_log_output do |output|
+      Book.update_in_bulk([[{ id: 1, status: :published }, { name: "Simple Conditions" }]])
+      sql_log = output.string
+      assert_match(/\bUPDATE\b/i, sql_log)
+      assert_no_match(/\bVALUES\b/i, sql_log)
+      assert_no_match(/\bJOIN\b/i, sql_log)
+    end
+
+    assert_equal "Simple Conditions", Book.find(1).name
+  end
+
+  def test_single_row_with_formulas_does_not_use_simple_update_optimization
+    capture_log_output do |output|
+      ProductStock.update_in_bulk({ "Tree" => { quantity: 1 } }, formulas: { quantity: :add })
+      sql_log = output.string
+      assert_match(/\bJOIN \((VALUES|SELECT) /i, sql_log)
+    end
+
+    assert_equal 11, ProductStock.find("Tree").quantity
+  end
+
+  def test_single_row_simple_update_no_formulas
+    capture_log_output do |output|
+      Book.update_in_bulk([{ id: 2 }], [{ name: "Separated Simple" }])
+      sql_log = output.string
+      assert_no_match(/\bVALUES\b/i, sql_log)
+      assert_no_match(/\bJOIN\b/i, sql_log)
+    end
+
+    assert_equal "Separated Simple", Book.find(2).name
+  end
+
+  def test_single_row_simple_update_with_timestamps
+    capture_log_output do |output|
+      Book.update_in_bulk([{ id: 2 }], [{ name: "Separated Simple" }], record_timestamps: true)
+      sql_log = output.string
+      assert_no_match(/\bVALUES\b/i, sql_log)
+      assert_no_match(/\bJOIN\b/i, sql_log)
+    end
+
+    assert_equal "Separated Simple", Book.find(2).name
+  end
+
+  def test_single_row_simple_update_with_explicit_nil_assign
+    capture_log_output do |output|
+      Book.update_in_bulk({ 2 => { format: nil } })
+      sql_log = output.string
+      assert_no_match(/\bVALUES\b/i, sql_log)
+      assert_no_match(/\bJOIN\b/i, sql_log)
+    end
+
+    assert_nil Book.find(2).format
+    assert_equal "hardcover", Book.find(3).format
+  end
+
+  def test_single_row_simple_update_with_explicit_hash_conditions
+    Book.update_in_bulk([[{ id: 1, status: :proposed }, { name: "Should Not Change" }]])
+    assert_equal "Agile Web Development with Rails", Book.find(1).name
+
+    capture_log_output do |output|
+      Book.update_in_bulk([[{ id: 1, status: :published }, { name: "Hash Conditions" }]])
+      sql_log = output.string
+      assert_no_match(/\bVALUES\b/i, sql_log)
+      assert_no_match(/\bJOIN\b/i, sql_log)
+    end
+
+    assert_equal "Hash Conditions", Book.find(1).name
+    assert_equal "Ruby for Rails", Book.find(2).name
+  end
+
+  def test_single_row_simple_update_with_composite_primary_key
+    capture_log_output do |output|
+      Car.update_in_bulk({ ["Toyota", "Camry"] => { year: 2001 } })
+      sql_log = output.string
+      assert_no_match(/\bVALUES\b/i, sql_log)
+      assert_no_match(/\bJOIN\b/i, sql_log)
+    end
+
+    assert_equal 2001, Car.find(["Toyota", "Camry"]).year
+    assert_equal 1972, Car.find(["Honda", "Civic"]).year
+    assert_equal 1964, Car.find(["Ford", "Mustang"]).year
   end
 
   def test_arel_sql_prevents_assign_inlining

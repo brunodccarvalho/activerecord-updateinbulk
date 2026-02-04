@@ -127,20 +127,48 @@ module ActiveRecord::UpdateInBulk
       resolve_read_and_write_keys!
       verify_read_and_write_keys!
       serialize_values!
-      detect_constant_columns!
+      detect_constant_columns! unless simple_update?
     end
 
     def build_arel
-      values_table, bitmask_keys = build_values_table
-      join_conditions = build_join_conditions(model.arel_table, values_table)
-      set_assignments = build_set_assignments(model.arel_table, values_table, bitmask_keys)
-      derived_table = typecast_values_table(values_table)
+      table = model.arel_table
+      values_table, bitmask_keys = build_values_table unless simple_update?
+      conditions = build_conditions(table, values_table)
+      set_assignments = build_set_assignments(table, values_table, bitmask_keys || Set.new)
+      derived_table = typecast_values_table(values_table) if values_table
 
-      [derived_table, join_conditions, set_assignments]
+      [derived_table, conditions, set_assignments]
     end
 
     private
       attr_reader :read_keys, :write_keys, :constant_conditions, :constant_assigns
+
+      def simple_update?
+        @conditions.size == 1 && @formulas.empty?
+      end
+
+      def build_conditions(table, values_table)
+        return build_simple_conditions(table) unless values_table
+
+        variable_index = 0
+        read_keys.map do |key|
+          if constant_conditions.key?(key)
+            table[key].eq(Arel::Nodes::Casted.new(constant_conditions[key], table[key]))
+          else
+            condition = table[key].eq(values_table[variable_index])
+            variable_index += 1
+            condition
+          end
+        end
+      end
+
+      def build_simple_conditions(table)
+        row_conditions = @conditions.first
+        read_keys.map do |key|
+          value = row_conditions.fetch(key)
+          table[key].eq(cast_for_column(value, table[key]))
+        end
+      end
 
       def serialize_values!
         types = (read_keys | write_keys).index_with { |key| model.type_for_attribute(key) }
@@ -191,32 +219,27 @@ module ActiveRecord::UpdateInBulk
         [values_table, bitmask_keys]
       end
 
-      def build_join_conditions(table, values_table)
-        variable_index = 0
-        read_keys.map do |key|
-          if constant_conditions.key?(key)
-            table[key].eq(Arel::Nodes::Casted.new(constant_conditions[key], table[key]))
-          else
-            condition = table[key].eq(values_table[variable_index])
-            variable_index += 1
-            condition
-          end
+      def build_simple_assignments(table)
+        row_assigns = @assigns.first
+        write_keys.map do |key|
+          lhs = table[key]
+          [lhs, cast_for_column(row_assigns.fetch(key), lhs)]
         end
       end
 
-      def build_set_assignments(table, values_table, bitmask_keys)
+      def build_join_assignments(table, values_table, bitmask_keys)
         column = read_keys.count { |k| !constant_conditions.key?(k) }
 
         bitmask_functions = bitmask_keys.index_with.with_index(1) do |key, index|
           Arel::Nodes::NamedFunction.new("SUBSTRING", [values_table[-1], index, 1])
         end
 
-        set_assignments = write_keys.map do |key|
+        write_keys.map do |key|
           formula = @formulas[key]
           lhs = table[key]
 
           if constant_assigns.key?(key)
-            rhs = Arel::Nodes::Casted.new(constant_assigns[key], table[key])
+            rhs = Arel::Nodes::Casted.new(constant_assigns[key], lhs)
           else
             rhs = values_table[column]
             column += 1
@@ -224,16 +247,24 @@ module ActiveRecord::UpdateInBulk
           end
 
           if function = bitmask_functions[key]
-            rhs = Arel::Nodes::Case.new(function).when("1").then(rhs).else(table[key])
+            rhs = Arel::Nodes::Case.new(function).when("1").then(rhs).else(lhs)
           elsif optional_keys.include?(key)
-            rhs = table.coalesce(rhs, table[key])
+            rhs = table.coalesce(rhs, lhs)
           end
-          [table[key], rhs]
+          [lhs, rhs]
+        end
+      end
+
+      def build_set_assignments(table, values_table, bitmask_keys)
+        set_assignments = if values_table
+          build_join_assignments(table, values_table, bitmask_keys)
+        else
+          build_simple_assignments(table)
         end
 
         if timestamp_keys.any?
           # Timestamp assignments precede data assignments to increase the
-          # change MySQL will actually run them against the original data.
+          # chance MySQL will actually run them against the original data.
           set_assignments = timestamp_assignments(set_assignments) + set_assignments
         end
 
@@ -302,6 +333,10 @@ module ActiveRecord::UpdateInBulk
 
       def opaque_value?(value)
         value.is_a?(Arel::Nodes::SqlLiteral) || value.is_a?(Arel::Nodes::BindParam)
+      end
+
+      def cast_for_column(value, column)
+        opaque_value?(value) ? value : Arel::Nodes::Casted.new(value, column)
       end
 
       def normalize_formulas(formulas)

@@ -26,6 +26,10 @@ if ARGV[0] == "-e"
   raise ArgumentError, "-e requires an argument" unless code
   result = eval(code, TOPLEVEL_BINDING, __FILE__, 1)
   puts result.inspect
+elsif ARGV[0] == "-f"
+  file = ARGV[1]
+  raise ArgumentError, "-f requires a file argument" unless file
+  load file
 else
   ActiveRecord::Base.logger = Logger.new($stdout, formatter: ->(*, msg) { "#{msg}\n" })
   require "irb"
