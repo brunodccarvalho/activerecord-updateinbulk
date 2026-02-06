@@ -32,4 +32,12 @@ class TestCase < ActiveSupport::TestCase
     original = @fixture_table_baseline.fetch(model.name)
     assert_model_snapshot_delta(model, original, snapshot_model(model), differences)
   end
+
+  def prepared_statements_enabled?
+    if current_adapter?(:Mysql2Adapter, :TrilogyAdapter)
+      ActiveRecord::Base.connection.prepared_statements?
+    else
+      true
+    end
+  end
 end

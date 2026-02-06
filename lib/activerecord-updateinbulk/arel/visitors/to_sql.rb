@@ -40,7 +40,7 @@ module ActiveRecord::UpdateInBulk
     private
       def build_values_table_single_value(value, collector)
         case value
-        when Arel::Nodes::SqlLiteral, Arel::Nodes::BindParam, ActiveModel::Attribute
+        when Arel::Nodes::SqlLiteral, Arel::Nodes::BoundSqlLiteral, Arel::Nodes::BindParam, ActiveModel::Attribute
           visit(value, collector)
         else
           collector << quote(value).to_s

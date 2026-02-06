@@ -17,8 +17,10 @@ mysql2: &mysql2
   password: <%= ENV.fetch("MYSQL_PASSWORD", "") %>
   host: <%= ENV.fetch("MYSQL_HOST", "localhost") %>
   port: <%= ENV.fetch("MYSQL_PORT", 3306) %>
+  prepared_statements: <%= ENV.fetch("MYSQL_PREPARED_STATEMENTS", "0") == "1" %>
 
 trilogy:
   <<: *mysql2
   adapter: trilogy
+  prepared_statements: false
   ssl_mode: required

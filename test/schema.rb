@@ -18,7 +18,8 @@ ActiveRecord::Schema.define do
 
   create_table :books, id: :integer, force: true do |t|
     t.references :author
-    t.string :format
+    t.string :description
+    t.string :format, limit: 16
     t.integer :pages, null: false, **unsigned, default: 0
     t.column :name, :string, limit: 48
     t.column :status, :integer, default: 0

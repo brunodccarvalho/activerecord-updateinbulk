@@ -393,6 +393,72 @@ class UpdateInBulkTest < TestCase
     end
   end
 
+  def test_with_bind_parameter_in_relation_scope
+    expected_binds = prepared_statements_enabled? ? 1 : 0
+
+    assert_query_sql(values: 2, on_width: 1, binds: expected_binds) do
+      assert_equal 2, Post.where("posts.author_id = :author_id", author_id: 1).update_in_bulk({
+        1 => { title: "bound scope 1" },
+        2 => { title: "bound scope 2" },
+        3 => { title: "ignored by scope" }
+      })
+    end
+
+    assert_model_delta(Post, {
+      1 => { title: "bound scope 1" },
+      2 => { title: "bound scope 2" }
+    })
+  end
+
+  def test_with_named_bind_parameter_in_condition
+    expected_binds = prepared_statements_enabled? ? 2 : 0
+
+    assert_query_sql(values: 2, on_width: 1, binds: expected_binds) do
+      Book.update_in_bulk([
+        [{ name: Arel.sql(":name", name: "Ruby for Rails") }, { name: "bound assigns 1" }],
+        [{ name: Arel.sql("?", "Domain-Driven Design") }, { name: "bound assigns 2" }]
+      ])
+    end
+
+    assert_model_delta(Book, {
+      2 => { name: "bound assigns 1" },
+      3 => { name: "bound assigns 2" }
+    })
+  end
+
+  def test_with_named_bind_parameter_in_assign
+    expected_binds = prepared_statements_enabled? ? 2 : 0
+
+    assert_query_sql(values: 2, on_width: 1, binds: expected_binds) do
+      Book.update_in_bulk([
+        [{ id: 1 }, { name: Arel.sql(":name", name: "bound assigns 1") }],
+        [{ id: 2 }, { name: Arel.sql("?", "bound assigns 2") }]
+      ])
+    end
+
+    assert_model_delta(Book, {
+      1 => { name: "bound assigns 1" },
+      2 => { name: "bound assigns 2" }
+    })
+  end
+
+  def test_with_named_bind_parameter_not_constantized
+    expected_binds = prepared_statements_enabled? ? 2 : 0
+    bind = Arel.sql("?", "bound assigns")
+
+    assert_query_sql(values: 2, on_width: 1, cases: 0, binds: expected_binds) do
+      Book.update_in_bulk([
+        [{ id: 1 }, { description: bind }],
+        [{ id: 2 }, { description: bind }]
+      ])
+    end
+
+    assert_model_delta(Book, {
+      1 => { description: "bound assigns" },
+      2 => { description: "bound assigns" }
+    })
+  end
+
   def test_with_order_limit_offset
     assert_raises(NotImplementedError) do
       Post.where(id: 1..6).order(id: :desc).limit(3).offset(2).update_in_bulk([

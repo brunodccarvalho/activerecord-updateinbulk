@@ -29,7 +29,7 @@ module TestSupport::AssertionsHelper
   # cases: Integer - how many CASE expressions are present
   # whens: Integer - how many WHEN conditions are present
   #
-  def assert_query_sql(values: nil, on_width: nil, cases: nil, whens: nil, &block)
+  def assert_query_sql(values: nil, on_width: nil, cases: nil, whens: nil, binds: nil, &block)
     sql_log = capture_sql_log(&block)
 
     unless values.nil?
@@ -63,6 +63,11 @@ module TestSupport::AssertionsHelper
 
     unless whens.nil?
       assert_equal whens, sql_log.scan(/ WHEN /).size, "Unexpected number of WHEN conditions:\n#{sql_log}"
+    end
+
+    unless binds.nil?
+      actual_binds = sql_log.scan(/[ (](?:#{bind_parameter_pattern})[ ),]/).size
+      assert_equal binds, actual_binds, "Unexpected number of bind parameters:\n#{sql_log}"
     end
   end
 
@@ -110,6 +115,14 @@ module TestSupport::AssertionsHelper
 
     diff = compute_grouped_shallow_json_diffs(expected, actual)
     assert_empty diff, "Unexpected delta for #{model.name}"
+  end
+
+  def bind_parameter_pattern
+    case ActiveRecord::Base.connection.adapter_name
+    when "PostgreSQL" then %r{\$[0-9]+}
+    when "SQLite", "Mysql2", "Trilogy" then Regexp.escape("?")
+    else raise "Adapter not handled: #{ActiveRecord::Base.connection.adapter_name}"
+    end
   end
 
   def snapshot_model(model)

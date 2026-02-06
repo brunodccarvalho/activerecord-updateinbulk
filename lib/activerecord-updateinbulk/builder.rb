@@ -319,7 +319,7 @@ module ActiveRecord::UpdateInBulk
       end
 
       def opaque_value?(value)
-        value.is_a?(Arel::Nodes::SqlLiteral) || value.is_a?(Arel::Nodes::BindParam)
+        Arel.arel_node?(value)
       end
 
       def cast_for_column(value, column)
