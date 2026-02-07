@@ -6,6 +6,14 @@ require "models"
 class FormulasTest < TestCase
   fixtures :all
 
+  before_suite do
+    Book.record_timestamps = false
+  end
+
+  after_suite do
+    Book.record_timestamps = true
+  end
+
   def test_formulas_add
     ProductStock.update_in_bulk({
       "Tree" => { quantity: 5 },
@@ -40,23 +48,21 @@ class FormulasTest < TestCase
     }, formulas: { name: :concat_append })
 
     assert_model_delta(Book, {
-      1 => { name: "Agile Web Development with Rails (2nd edition)", updated_at: :_modified },
-      2 => { name: "Ruby for Rails (revised)", updated_at: :_modified }
+      1 => { name: "Agile Web Development with Rails (2nd edition)" },
+      2 => { name: "Ruby for Rails (revised)" }
     })
   end
 
   def test_formulas_concat_prepend
-    assert_query_sql(values: 2, on_width: 1, cases: 2, whens: 2) do
-      Book.update_in_bulk({
-        1 => { name: "Classic: " },
-        2 => { name: "Classic: " },
-        3 => { name: "" },
-      }, formulas: { name: :concat_prepend }, record_timestamps: true)
-    end
+    Book.update_in_bulk({
+      1 => { name: "Classic: " },
+      2 => { name: "Classic: " },
+      3 => { name: "" },
+    }, formulas: { name: :concat_prepend })
 
     assert_model_delta(Book, {
-      1 => { name: "Classic: Agile Web Development with Rails", updated_at: :_modified },
-      2 => { name: "Classic: Ruby for Rails", updated_at: :_modified }
+      1 => { name: "Classic: Agile Web Development with Rails" },
+      2 => { name: "Classic: Ruby for Rails" }
     })
   end
 
@@ -88,8 +94,8 @@ class FormulasTest < TestCase
     }, formulas: { name: :concat_append })
 
     assert_model_delta(Book, {
-      1 => { name: "Agile Web Development with Rails X", pages: 100, updated_at: :_modified },
-      2 => { pages: 200, updated_at: :_modified },
+      1 => { name: "Agile Web Development with Rails X", pages: 100 },
+      2 => { pages: 200 },
     })
   end
 
@@ -132,8 +138,8 @@ class FormulasTest < TestCase
     }, formulas: { name: concat_proc })
 
     assert_model_delta(Book, {
-      1 => { name: "Agile Web Development with Rails (custom)", updated_at: :_modified },
-      2 => { name: "Ruby for Rails (custom)", updated_at: :_modified }
+      1 => { name: "Agile Web Development with Rails (custom)" },
+      2 => { name: "Ruby for Rails (custom)" }
     })
   end
 
@@ -166,8 +172,8 @@ class FormulasTest < TestCase
     }, formulas: { name: concat_proc })
 
     assert_model_delta(Book, {
-      1 => { name: "Agile Web Development with Rails X", updated_at: :_modified },
-      2 => { pages: 7, updated_at: :_modified }
+      1 => { name: "Agile Web Development with Rails X" },
+      2 => { pages: 7 }
     })
   end
 

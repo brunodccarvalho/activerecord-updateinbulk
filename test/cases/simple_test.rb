@@ -51,7 +51,7 @@ class SimpleTest < TestCase
       Book.update_in_bulk([{ id: 2 }], [{ name: "Separated Simple" }], record_timestamps: true)
     end
 
-    assert_model_delta(Book, { 2 => { name: "Separated Simple", updated_at: :_modified } })
+    assert_model_delta(Book, { 2 => { name: "Separated Simple", updated_at: :_modified, updated_on: :_modified } })
   end
 
   def test_simple_update_with_explicit_nil_assign

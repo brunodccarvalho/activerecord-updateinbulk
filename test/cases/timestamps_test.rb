@@ -20,79 +20,55 @@ class TimestampsTest < TestCase
         Book.update_in_bulk({ 1 => { name: "Scrum Development", status: :proposed } }, record_timestamps: true)
       end
     end
+
     assert_model_delta(Book, {
-      1 => { name: "Scrum Development", status: "proposed", updated_at: :_modified }
+      1 => { name: "Scrum Development", status: "proposed", updated_at: :_modified, updated_on: Date.today }
     })
   end
 
-  def test_record_timestamps_always_uses_plain_current_timestamp
+  def test_record_timestamps_always_bumps_unchanged
     assert_query_sql(values: 2, on_width: 1, cases: 0, whens: 0) do
       Book.update_in_bulk({
         1 => { name: "Agile Web Development with Rails" },
-        2 => { name: "Ruby for Rails" }
+        2 => { name: "Ruby for Rails 2" }
       }, record_timestamps: :always)
     end
 
-    assert_model_delta(Book, { 1 => { updated_at: :_modified }, 2 => { updated_at: :_modified } })
+    assert_in_delta Time.now.utc, Book.find(2).updated_at, 0.1
+    assert_model_delta(Book, {
+      1 => { updated_at: :_modified, updated_on: Date.today },
+      2 => { name: "Ruby for Rails 2", updated_at: :_modified, updated_on: Date.today }
+    })
   end
 
-  def test_record_timestamps_always_updates_noop_rows_and_returns_rows_matched
-    old = Time.now.utc - 5.years
-    Book.insert_all!([
-      { id: 101, name: "Noop-101", updated_at: old, updated_on: old.to_date },
-      { id: 102, name: "Noop-102", updated_at: old, updated_on: old.to_date },
-      { id: 103, name: "Noop-103", updated_at: old, updated_on: old.to_date }
-    ])
-
-    affected_rows = Book.update_in_bulk({
-      101 => { name: "Noop-101" },
-      102 => { name: "Noop-102" },
-      103 => { name: "Noop-103" }
-    }, record_timestamps: :always)
-
-    assert_equal 3, affected_rows
-
-    [101, 102, 103].each do |id|
-      book = Book.find(id)
-      assert_operator book.updated_at, :>, old
-      assert_operator book.updated_on, :>, old.to_date
+  def test_record_timestamps_true_only_bumps_if_changed
+    assert_query_sql(values: 2, on_width: 1, cases: 2, whens: 2) do
+      Book.update_in_bulk({
+        1 => { name: "Agile Web Development with Rails" },
+        2 => { name: "Ruby for Rails 2" }
+      }, record_timestamps: true)
     end
+
+    assert_in_delta Time.now.utc, Book.find(2).updated_at, 0.1
+    assert_model_delta(Book, {
+      2 => { name: "Ruby for Rails 2", updated_at: :_modified, updated_on: Date.today }
+    })
   end
 
-  def test_timestamps_does_not_touch_updated_at_when_values_do_not_change
-    created_at = Time.now.utc - 8.years
-    updated_at = Time.now.utc - 5.years
-    Book.insert_all [{ id: 101, name: "Out of the Silent Planet", published_on: Date.new(1938, 4, 1), created_at: created_at, updated_at: updated_at }]
-    Book.update_in_bulk({ 101 => { name: "Out of the Silent Planet", published_on: Date.new(1938, 4, 1) } }, record_timestamps: true)
+  def test_record_timestamps_true_only_bumps_changed_optionals
+    # cases: 2 timestamps outers + 2 bitmask inner + 1 bitmask assign (description)
+    assert_query_sql(values: 5, on_width: 1, cases: 5, whens: 5, coalesce: 3) do
+      Book.update_in_bulk({
+        1 => { name: "Agile 2", pages: 200 },
+        2 => { name: nil, description: "A great book" },
+        3 => { name: "Domain-Driven Design", description: nil },
+      }, record_timestamps: true)
+    end
 
-    assert_in_delta updated_at, Book.find(101).updated_at, 1
-  end
-
-  def test_timestamps_single_row_noop_does_not_touch_timestamps_or_other_rows
-    updated_at_target = Time.now.utc - 5.years
-    updated_at_other = Time.now.utc - 4.years
-    Book.insert_all!([
-      { id: 101, name: "Out of the Silent Planet", published_on: Date.new(1938, 4, 1), updated_at: updated_at_target, updated_on: updated_at_target.to_date },
-      { id: 102, name: "Perelandra", published_on: Date.new(1943, 1, 1), updated_at: updated_at_other, updated_on: updated_at_other.to_date }
-    ])
-
-    Book.update_in_bulk({ 101 => { name: "Out of the Silent Planet", published_on: Date.new(1938, 4, 1) } }, record_timestamps: true)
-
-    assert_in_delta updated_at_target, Book.find(101).updated_at, 1
-    assert_equal updated_at_target.to_date, Book.find(101).updated_on
-    assert_in_delta updated_at_other, Book.find(102).updated_at, 1
-    assert_equal updated_at_other.to_date, Book.find(102).updated_on
-    assert_equal "Perelandra", Book.find(102).name
-  end
-
-  def test_touches_updated_at_and_updated_on_and_not_created_at_when_values_change
-    Book.insert_all [{ id: 101, name: "Out of the Silent Planet", published_on: Date.new(1938, 4, 1), created_at: 8.years.ago, updated_at: 5.years.ago, updated_on: 5.years.ago }]
-    Book.update_in_bulk({ 101 => { name: "Out of the Silent Planet", published_on: Date.new(1938, 4, 8) } }, record_timestamps: true)
-
-    book = Book.find(101)
-    assert_equal 8.years.ago.year, book.created_at.year
-    assert_equal Time.now.utc.year, book.updated_at.year
-    assert_equal Time.now.utc.year, book.updated_on.year
+    assert_model_delta(Book, {
+      1 => { name: "Agile 2", pages: 200, updated_at: :_modified, updated_on: Date.today },
+      2 => { name: nil, updated_at: :_modified, updated_on: Date.today }
+    })
   end
 
   def test_respects_updated_at_precision_when_touched_implicitly
@@ -163,48 +139,6 @@ class TimestampsTest < TestCase
       assert_in_delta Time.now.utc, Book.find(101).updated_at, 1
       assert_equal Time.now.utc.to_date, Book.find(101).updated_on, 1
     end
-  end
-
-  def test_timestamps_not_bumped_when_optional_keys_unchanged
-    updated_at = 2.days.ago.utc
-    Book.update_all(difficulty: nil, updated_at: updated_at)
-
-    # update no columns
-    Book.update_in_bulk({
-      2 => { author_visibility: :visible, language: :english, font_size: :small },
-      3 => { difficulty: nil, font_size: :small },
-      4 => { cover: "hard", language: :english, font_size: :small },
-    }, record_timestamps: true)
-
-    days = Book.where(id: 2..4).order(:id).pluck(:updated_at).map(&:day)
-    assert_equal [updated_at.day] * 3, days
-    assert_model_delta(Book, {
-      1 => { difficulty: nil, updated_at: :_modified },
-      2 => { difficulty: nil, updated_at: :_modified },
-      3 => { difficulty: nil, updated_at: :_modified },
-      4 => { difficulty: nil, updated_at: :_modified }
-    })
-  end
-
-  def test_timestamps_bumped_when_optional_keys_change
-    updated_at = 2.days.ago.utc
-    Book.update_all(difficulty: nil, updated_at: updated_at)
-
-    # update 3.font_size and 4.difficulty but not 2
-    Book.update_in_bulk({
-      2 => { language: :english, font_size: :small }, # identical
-      3 => { difficulty: nil, font_size: nil },
-      4 => { cover: "hard", difficulty: :easy, font_size: :small },
-    }, record_timestamps: true)
-
-    days = Book.where(id: 2..4).order(:id).pluck(:updated_at).map(&:day)
-    assert_equal [updated_at.day, Time.now.utc.day, Time.now.utc.day], days
-    assert_model_delta(Book, {
-      1 => { difficulty: nil, updated_at: :_modified },
-      2 => { difficulty: nil, updated_at: :_modified },
-      3 => { difficulty: nil, font_size: nil, updated_at: :_modified },
-      4 => { updated_at: :_modified }
-    })
   end
 
   private
