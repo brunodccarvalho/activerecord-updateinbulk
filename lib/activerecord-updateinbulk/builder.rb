@@ -152,7 +152,7 @@ module ActiveRecord::UpdateInBulk
       end
 
       def timestamp_keys
-        @timestamp_keys ||= @record_timestamps ? model.timestamp_attributes_for_update_in_model.to_set - write_keys : Set.new
+        @timestamp_keys ||= record_timestamps_enabled? ? model.timestamp_attributes_for_update_in_model.to_set - write_keys : Set.new
       end
 
       def simple_update?
@@ -300,6 +300,12 @@ module ActiveRecord::UpdateInBulk
       end
 
       def timestamp_assignments(set_assignments)
+        if always_record_timestamps?
+          return timestamp_keys.map do |key|
+            [model.arel_table[key], connection.high_precision_current_timestamp]
+          end
+        end
+
         case_conditions = set_assignments.map do |left, right|
           left.is_not_distinct_from(right)
         end
@@ -310,6 +316,14 @@ module ActiveRecord::UpdateInBulk
                                              .else(connection.high_precision_current_timestamp)
           [model.arel_table[key], Arel::Nodes::Grouping.new(case_assignment)]
         end
+      end
+
+      def record_timestamps_enabled?
+        !@record_timestamps.nil? && @record_timestamps != false
+      end
+
+      def always_record_timestamps?
+        @record_timestamps == :always
       end
 
       # When you assign a value to NULL, we need to use a bitmask to distinguish that

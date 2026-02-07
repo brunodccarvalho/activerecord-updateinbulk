@@ -51,6 +51,10 @@ module ActiveRecord::UpdateInBulk
     #   To override this and force automatic setting of timestamp columns one
     #   way or the other, pass <tt>:record_timestamps</tt>.
     #
+    #   Pass <tt>record_timestamps: :always</tt> to always assign timestamp
+    #   columns to the current database timestamp (without change-detection
+    #   CASE logic).
+    #
     # [:formulas]
     #   A hash of column names to formula identifiers or Procs. Instead of
     #   a simple assignment, the column is set to an expression that can

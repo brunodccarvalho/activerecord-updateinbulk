@@ -64,6 +64,7 @@ Order.joins(:items).where(items: { status: :shipped }).update_in_bulk({
 By default `update_in_bulk` implicitly bumps update timestamps similar to `upsert_all`.
 - If the model has `updated_at`/`updated_on`, these are bumped *iff the row actually changed*.
 - Passing `record_timestamps: false` can disable bumping the update timestamps for the query.
+- Passing `record_timestamps: :always` always sets update timestamps to `CURRENT_TIMESTAMP`.
 - The `updated_at` columns can also be manually assigned, this disables the implicit bump behaviour.
 
 ```ruby

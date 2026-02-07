@@ -25,6 +25,40 @@ class TimestampsTest < TestCase
     })
   end
 
+  def test_record_timestamps_always_uses_plain_current_timestamp
+    assert_query_sql(values: 2, on_width: 1, cases: 0, whens: 0) do
+      Book.update_in_bulk({
+        1 => { name: "Agile Web Development with Rails" },
+        2 => { name: "Ruby for Rails" }
+      }, record_timestamps: :always)
+    end
+
+    assert_model_delta(Book, { 1 => { updated_at: :_modified }, 2 => { updated_at: :_modified } })
+  end
+
+  def test_record_timestamps_always_updates_noop_rows_and_returns_rows_matched
+    old = Time.now.utc - 5.years
+    Book.insert_all!([
+      { id: 101, name: "Noop-101", updated_at: old, updated_on: old.to_date },
+      { id: 102, name: "Noop-102", updated_at: old, updated_on: old.to_date },
+      { id: 103, name: "Noop-103", updated_at: old, updated_on: old.to_date }
+    ])
+
+    affected_rows = Book.update_in_bulk({
+      101 => { name: "Noop-101" },
+      102 => { name: "Noop-102" },
+      103 => { name: "Noop-103" }
+    }, record_timestamps: :always)
+
+    assert_equal 3, affected_rows
+
+    [101, 102, 103].each do |id|
+      book = Book.find(id)
+      assert_operator book.updated_at, :>, old
+      assert_operator book.updated_on, :>, old.to_date
+    end
+  end
+
   def test_timestamps_does_not_touch_updated_at_when_values_do_not_change
     created_at = Time.now.utc - 8.years
     updated_at = Time.now.utc - 5.years
