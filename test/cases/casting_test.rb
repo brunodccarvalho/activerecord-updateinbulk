@@ -2,6 +2,7 @@
 
 require "test_helper"
 require "models"
+require "ipaddr"
 
 class CastingTest < TestCase
   fixtures :all
@@ -124,9 +125,9 @@ class CastingTest < TestCase
     ])
 
     assert_model_delta(TypeVariety, {
-      1 => { col_float: 0.5, col_decimal: 99.95, col_text: "float match 1", col_char: "decimal 1" },
-      2 => { col_float: -2.5, col_decimal: 67.89, col_text: "float match 2", col_char: "decimal 2" },
-      3 => { col_float: 2.75, col_decimal: -0.01, col_text: "float match 3", col_char: "decimal 3" }
+      1 => { col_float: 0.5, col_decimal: 99.95.to_d, col_text: "float match 1", col_char: "decimal 1" },
+      2 => { col_float: -2.5, col_decimal: 67.89.to_d, col_text: "float match 2", col_char: "decimal 2" },
+      3 => { col_float: 2.75, col_decimal: -0.01.to_d, col_text: "float match 3", col_char: "decimal 3" }
     })
   end
 
@@ -171,6 +172,227 @@ class CastingTest < TestCase
       1 => { col_enum: "alpha", col_text: "enum alpha" },
       2 => { col_enum: "beta", col_text: "enum beta" },
       3 => { col_enum: "gamma" }
+    })
+  end
+
+  def test_typecast_assigns_and_conditions_postgresql_uuid_inet_cidr_macaddr
+    skip "Adapter does not support PostgreSQL advanced types" unless postgres?
+
+    uuid_one = "550e8400-e29b-41d4-a716-446655440000"
+    uuid_two = "550e8400-e29b-41d4-a716-446655440001"
+
+    TypeVariety.update_in_bulk({
+      1 => { col_uuid: uuid_one.upcase, col_inet: "192.168.0.10", col_cidr: IPAddr.new("10.0.0.0/24"), col_macaddr: "08:00:2B:01:02:03" },
+      2 => { col_uuid: uuid_two, col_inet: IPAddr.new("10.20.30.40"), col_cidr: "172.16.0.0/16", col_macaddr: "08:00:2b:01:02:04" }
+    })
+
+    TypeVariety.update_in_bulk([
+      [{ col_uuid: uuid_one }, { col_text: "uuid condition 1" }],
+      [{ col_uuid: uuid_two }, { col_text: "uuid condition 2" }]
+    ])
+    TypeVariety.update_in_bulk([
+      [{ col_inet: IPAddr.new("192.168.0.10") }, { col_char: "inet condition 1" }],
+      [{ col_inet: "10.20.30.40" }, { col_char: "inet condition 2" }]
+    ])
+    TypeVariety.update_in_bulk([
+      [{ col_cidr: "10.0.0.0/24" }, { col_varchar: "cidr condition 1" }],
+      [{ col_cidr: IPAddr.new("172.16.0.0/16") }, { col_varchar: "cidr condition 2" }]
+    ])
+    TypeVariety.update_in_bulk([
+      [{ col_macaddr: "08:00:2b:01:02:03" }, { col_string: "mac condition 1" }],
+      [{ col_macaddr: "08:00:2B:01:02:04" }, { col_string: "mac condition 2" }]
+    ])
+
+    assert_model_delta(TypeVariety, {
+      1 => {
+        col_uuid: uuid_one,
+        col_inet: IPAddr.new("192.168.0.10"),
+        col_cidr: IPAddr.new("10.0.0.0/24"),
+        col_macaddr: "08:00:2b:01:02:03",
+        col_text: "uuid condition 1",
+        col_char: "inet condition 1",
+        col_varchar: "cidr condition 1",
+        col_string: "mac condition 1"
+      },
+      2 => {
+        col_uuid: uuid_two,
+        col_inet: IPAddr.new("10.20.30.40"),
+        col_cidr: IPAddr.new("172.16.0.0/16"),
+        col_macaddr: "08:00:2b:01:02:04",
+        col_text: "uuid condition 2",
+        col_char: "inet condition 2",
+        col_varchar: "cidr condition 2",
+        col_string: "mac condition 2"
+      }
+    })
+  end
+
+  def test_typecast_assigns_and_conditions_postgresql_jsonb_xml
+    skip "Adapter does not support PostgreSQL advanced types" unless postgres?
+
+    TypeVariety.update_in_bulk({
+      1 => { col_jsonb: { key: "one", "items" => [1, "2"] }, col_xml: "<root><entry>one</entry></root>" },
+      2 => { col_jsonb: [{ "key" => "two" }, true], col_xml: "<root><entry>two</entry></root>" }
+    })
+
+    TypeVariety.update_in_bulk([
+      [{ col_jsonb: { key: "one", items: [1, "2"] } }, { col_text: "jsonb condition 1" }],
+      [{ col_jsonb: [{ key: "two" }, true] }, { col_text: "jsonb condition 2" }]
+    ])
+
+    assert_equal "key", TypeVariety.find(1).col_jsonb.keys.first
+    assert_model_delta(TypeVariety, {
+      1 => { col_jsonb: { "key" => "one", "items" => [1, "2"] }, col_xml: "<root><entry>one</entry></root>", col_text: "jsonb condition 1" },
+      2 => { col_jsonb: [{ "key" => "two" }, true], col_xml: "<root><entry>two</entry></root>", col_text: "jsonb condition 2" }
+    })
+  end
+
+  def test_typecast_assigns_and_conditions_postgresql_bit_tsvector_interval
+    skip "Adapter does not support PostgreSQL advanced types" unless postgres?
+
+    TypeVariety.update_in_bulk({
+      1 => { col_bit: "10101010", col_bit_varying: "1011", col_tsvector: "rails update_in_bulk", col_interval: "P1DT2H3M4S" },
+      2 => { col_bit: "01010101", col_bit_varying: "11", col_tsvector: "active record", col_interval: "P2DT10M" }
+    })
+
+    TypeVariety.update_in_bulk([
+      [{ col_bit: "10101010" }, { col_integer: 111 }],
+      [{ col_bit: "01010101" }, { col_integer: 222 }]
+    ])
+    TypeVariety.update_in_bulk([
+      [{ col_bit_varying: "1011" }, { col_smallint: 11 }],
+      [{ col_bit_varying: "11" }, { col_smallint: 22 }]
+    ])
+    TypeVariety.update_in_bulk([
+      [{ col_tsvector: "rails update_in_bulk" }, { col_text: "tsvector condition 1" }],
+      [{ col_tsvector: "active record" }, { col_text: "tsvector condition 2" }]
+    ])
+    TypeVariety.update_in_bulk([
+      [{ col_interval: "P1DT2H3M4S" }, { col_varchar: "interval cond 1" }],
+      [{ col_interval: "P2DT10M" }, { col_varchar: "interval cond 2" }]
+    ])
+
+    assert_model_delta(TypeVariety, {
+      1 => {
+        col_bit: :_modified,
+        col_bit_varying: :_modified,
+        col_tsvector: "'rails' 'update_in_bulk'",
+        col_interval: 1.day + 2.hours + 3.minutes + 4.seconds,
+        col_integer: 111,
+        col_smallint: 11,
+        col_text: "tsvector condition 1",
+        col_varchar: "interval cond 1"
+      },
+      2 => {
+        col_bit: :_modified,
+        col_bit_varying: :_modified,
+        col_tsvector: "'active' 'record'",
+        col_interval: 2.days + 10.minutes,
+        col_integer: 222,
+        col_smallint: 22,
+        col_text: "tsvector condition 2",
+        col_varchar: "interval cond 2"
+      }
+    })
+  end
+
+  def test_typecast_assigns_and_conditions_postgresql_arrays_and_simple_ranges
+    skip "Adapter does not support PostgreSQL advanced types" unless postgres?
+
+    assert_no_queries_match(%r{0\.6}) do
+      TypeVariety.update_in_bulk({
+        1 => { col_integer_array: ["1", 2, 3.6], col_text_array: ["one", 2, :three], col_daterange: Date.new(2024, 1, 1)...Date.new(2024, 2, 1), col_numrange: "[1.5,2.5)" },
+        2 => { col_integer_array: [4, 5.6, 6], col_text_array: ["four", "five"], col_daterange: Date.new(2024, 3, 1)...Date.new(2024, 4, 1), col_numrange: "[3.5,4.5)" }
+      })
+    end
+
+    TypeVariety.update_in_bulk([
+      [{ col_integer_array: [1, 2, 3] }, { col_bigint: 101 }],
+      [{ col_integer_array: ["4", 5.6, 6] }, { col_bigint: 202 }]
+    ])
+    TypeVariety.update_in_bulk([
+      [{ col_text_array: ["one", "2", "three"] }, { col_text: "text_array condition 1" }],
+      [{ col_text_array: ["four", "five"] }, { col_text: "text_array condition 2" }]
+    ])
+    TypeVariety.update_in_bulk([
+      [{ col_daterange: "[2024-01-01,2024-02-01)" }, { col_date: Date.new(2030, 1, 1) }],
+      [{ col_daterange: Date.new(2024, 3, 1)...Date.new(2024, 4, 1) }, { col_date: Date.new(2030, 2, 1) }]
+    ])
+    TypeVariety.update_in_bulk([
+      [{ col_numrange: "[1.5,2.5)" }, { col_char: "numrange cond 1" }],
+      [{ col_numrange: "[3.5,4.5)" }, { col_char: "numrange cond 2" }]
+    ])
+
+    assert_model_delta(TypeVariety, {
+      1 => {
+        col_integer_array: [1, 2, 3],
+        col_text_array: ["one", "2", "three"],
+        col_daterange: Date.new(2024, 1, 1)...Date.new(2024, 2, 1),
+        col_numrange: BigDecimal("1.5")...BigDecimal("2.5"),
+        col_bigint: 101,
+        col_text: "text_array condition 1",
+        col_date: Date.new(2030, 1, 1),
+        col_char: "numrange cond 1"
+      },
+      2 => {
+        col_integer_array: [4, 5, 6],
+        col_text_array: ["four", "five"],
+        col_daterange: Date.new(2024, 3, 1)...Date.new(2024, 4, 1),
+        col_numrange: BigDecimal("3.5")...BigDecimal("4.5"),
+        col_bigint: 202,
+        col_text: "text_array condition 2",
+        col_date: Date.new(2030, 2, 1),
+        col_char: "numrange cond 2"
+      }
+    })
+  end
+
+  def test_typecast_assigns_and_conditions_postgresql_temporal_and_integer_ranges
+    skip "Adapter does not support PostgreSQL advanced types" unless postgres?
+
+    TypeVariety.update_in_bulk({
+      1 => { col_tsrange: "[2024-01-01 00:00:00,2024-01-02 00:00:00)", col_tstzrange: "[2024-01-01 00:00:00+02,2024-01-02 00:00:00+02)", col_int4range: 1..10, col_int8range: "[10000000000,10000000010]" },
+      2 => { col_tsrange: "[2024-03-01 00:00:00,2024-03-02 00:00:00)", col_tstzrange: "[2024-03-01 00:00:00+00,2024-03-02 00:00:00+00)", col_int4range: 20...30, col_int8range: "[20000000000,20000000010)" }
+    })
+
+    TypeVariety.update_in_bulk([
+      [{ col_tsrange: "[2024-01-01 00:00:00,2024-01-02 00:00:00)" }, { col_text: "tsrange condition 1" }],
+      [{ col_tsrange: "[2024-03-01 00:00:00,2024-03-02 00:00:00)" }, { col_text: "tsrange condition 2" }]
+    ])
+    TypeVariety.update_in_bulk([
+      [{ col_tstzrange: "[2024-01-01 00:00:00+02,2024-01-02 00:00:00+02)" }, { col_varchar: "tstzrange cond 1" }],
+      [{ col_tstzrange: "[2024-03-01 00:00:00+00,2024-03-02 00:00:00+00)" }, { col_varchar: "tstzrange cond 2" }]
+    ])
+    TypeVariety.update_in_bulk([
+      [{ col_int4range: "[1,11)" }, { col_smallint: 11 }],
+      [{ col_int4range: 20..29 }, { col_smallint: 22 }]
+    ])
+    TypeVariety.update_in_bulk([
+      [{ col_int8range: "[10000000000,10000000011)" }, { col_bigint: 101 }],
+      [{ col_int8range: "[20000000000,20000000009]" }, { col_bigint: 202 }]
+    ])
+
+    assert_model_delta(TypeVariety, {
+      1 => {
+        col_tsrange: Time.utc(2024, 1, 1, 0, 0, 0)...Time.utc(2024, 1, 2, 0, 0, 0),
+        col_tstzrange: Time.utc(2023, 12, 31, 22, 0, 0)...Time.utc(2024, 1, 1, 22, 0, 0),
+        col_int4range: 1...11,
+        col_int8range: 10_000_000_000...10_000_000_011,
+        col_text: "tsrange condition 1",
+        col_varchar: "tstzrange cond 1",
+        col_smallint: 11,
+        col_bigint: 101
+      },
+      2 => {
+        col_tsrange: Time.utc(2024, 3, 1, 0, 0, 0)...Time.utc(2024, 3, 2, 0, 0, 0),
+        col_tstzrange: Time.utc(2024, 3, 1, 0, 0, 0)...Time.utc(2024, 3, 2, 0, 0, 0),
+        col_int4range: 20...30,
+        col_int8range: 20_000_000_000...20_000_000_010,
+        col_text: "tsrange condition 2",
+        col_varchar: "tstzrange cond 2",
+        col_smallint: 22,
+        col_bigint: 202
+      }
     })
   end
 
@@ -233,29 +455,28 @@ class CastingTest < TestCase
   end
 
   def test_typecast_for_jsons_is_not_constantized
-    skip unless ActiveRecord::Base.connection.supports_json?
-    update = { "a" => 1, "b" => 2 }.freeze
+    values = ActiveRecord::Base.connection.supports_json? ? 2 : 1
 
-    assert_query_sql(values: 2, on_width: 1, cases: 0) do
+    assert_query_sql(values: values, on_width: 1, cases: 0) do
       User.update_in_bulk({
-        1 => { preferences: update },
-        2 => { preferences: update }
+        1 => { notifications: "1" },
+        2 => { notifications: "1" }
       })
     end
 
     assert_model_delta(User, {
-      1 => { preferences: { "a" => 1, "b" => 2 } },
-      2 => { preferences: { "a" => 1, "b" => 2 } }
+      1 => { notifications: "1" },
+      2 => { notifications: "1" }
     })
 
-    assert_query_sql(values: 2, on_width: 1, cases: 0) do
+    assert_query_sql(values: values, on_width: 1, cases: 0) do
       User.update_in_bulk({
-        1 => { preferences: nil },
-        2 => { preferences: nil }
+        1 => { notifications: nil },
+        2 => { notifications: nil }
       })
     end
 
-    assert_model_delta(User, { 2 => { preferences: nil } })
+    assert_model_delta(User, { 1 => { notifications: nil }, 2 => { notifications: nil } })
   end
 
   def test_typecast_assigns_date_and_time

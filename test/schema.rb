@@ -112,6 +112,28 @@ ActiveRecord::Schema.define do
       t.column :col_timestampz, :timestamp
     end
 
+    if TestSupport::Database.postgres?
+      t.jsonb :col_jsonb
+      t.xml :col_xml
+      t.uuid :col_uuid
+      t.inet :col_inet
+      t.cidr :col_cidr
+      t.macaddr :col_macaddr
+      t.bit :col_bit, limit: 8
+      t.bit_varying :col_bit_varying, limit: 8
+      t.tsvector :col_tsvector
+      t.interval :col_interval
+      t.oid :col_oid
+      t.integer :col_integer_array, array: true
+      t.text :col_text_array, array: true
+      t.daterange :col_daterange
+      t.numrange :col_numrange
+      t.tsrange :col_tsrange
+      t.tstzrange :col_tstzrange
+      t.int4range :col_int4range
+      t.int8range :col_int8range
+    end
+
     if TestSupport::Database.mysql?
       t.column :col_geometry, :geometry
     end

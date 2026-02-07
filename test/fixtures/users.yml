@@ -3,6 +3,8 @@ david:
   name: David
   <% if ActiveRecord::Base.connection.supports_json? %>
   notifications: ["Welcome"]
+  <% else %>
+  notifications: '["Welcome"]'
   <% end %>
 
 joao:
@@ -16,6 +18,8 @@ joao:
     theme: dark
     plan: 30
   notifications: ["Primeira", "Segunda"]
+  <% else %>
+  notifications: '["Primeira", "Segunda"]'
   <% end %>
 
 albert:

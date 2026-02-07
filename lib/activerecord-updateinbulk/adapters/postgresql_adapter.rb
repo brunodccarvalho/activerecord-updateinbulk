@@ -12,8 +12,9 @@ module ActiveRecord::UpdateInBulk
         case column
         when ActiveRecord::ConnectionAdapters::PostgreSQL::Column
           if SAFE_TYPES_FOR_VALUES_TABLE.exclude?(column.type) ||
+              column.array ||
               values_table.rows.all? { |row| row[index].nil? }
-            column.sql_type
+            column.sql_type_metadata.sql_type
           end
         when Arel::Nodes::SqlLiteral, nil
           column

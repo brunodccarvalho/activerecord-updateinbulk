@@ -108,9 +108,11 @@ module TestSupport::AssertionsHelper
         row = expected[id] = expected.fetch(id).dup
 
         spec.transform_keys(&:to_s).each do |key, value|
-          value = actual.fetch(id).fetch(key) if value == :_modified
+          correct = actual.fetch(id).fetch(key)
+          value = correct if value == :_modified
           flunk "Unknown attribute #{key.inspect}" unless attribute_keys.include?(key)
           flunk "Expected row #{id.inspect}.#{key} to have a been modified: #{value.inspect}" if row[key] == value
+          flunk "Expected row #{id.inspect}.#{key} to be of type #{correct.class}" unless value.nil? || correct.nil? || value.class == correct.class
 
           row[key] = value
         end
