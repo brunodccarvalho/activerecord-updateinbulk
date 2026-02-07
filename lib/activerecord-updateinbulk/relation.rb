@@ -60,8 +60,8 @@ module ActiveRecord::UpdateInBulk
     #   a simple assignment, the column is set to an expression that can
     #   reference both the current selected row value and the incoming value.
     #
-    #   Built-in formulas: <tt>:add</tt>, <tt>:subtract</tt>, <tt>:min</tt>,
-    #   <tt>:max</tt>, <tt>:concat_append</tt>, <tt>:concat_prepend</tt>.
+    #   Built-in formulas: <tt>:add</tt>, <tt>:subtract</tt>,
+    #   <tt>:concat_append</tt>, <tt>:concat_prepend</tt>.
     #
     #     Inventory.update_in_bulk({
     #       "Christmas balls" => { quantity: 73 },
@@ -72,8 +72,8 @@ module ActiveRecord::UpdateInBulk
     #   <tt>(lhs, rhs)</tt> or <tt>(lhs, rhs, model)</tt> and returns an
     #   Arel node:
     #
-    #     add_capped = ->(lhs, rhs) { lhs.least(lhs + rhs) }
-    #     Inventory.update_in_bulk(updates, formulas: { quantity: add_capped })
+    #     add_tax = ->(lhs, rhs) { lhs + rhs + 1 }
+    #     Inventory.update_in_bulk(updates, formulas: { quantity: add_tax })
     #
     # ==== Examples
     #

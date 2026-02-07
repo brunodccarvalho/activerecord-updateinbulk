@@ -22,12 +22,8 @@ module ActiveRecord
 end
 
 require "activerecord-updateinbulk/builder"
-require "activerecord-updateinbulk/arel/math"
-require "activerecord-updateinbulk/arel/nodes/least"
-require "activerecord-updateinbulk/arel/nodes/greatest"
 require "activerecord-updateinbulk/arel/nodes/values_table"
 require "activerecord-updateinbulk/arel/visitors/to_sql"
-require "activerecord-updateinbulk/arel/visitors/sqlite"
 require "activerecord-updateinbulk/arel/select_manager"
 require "activerecord-updateinbulk/relation"
 require "activerecord-updateinbulk/querying"

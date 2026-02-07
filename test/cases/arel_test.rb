@@ -108,30 +108,6 @@ class ValuesTableTest < TestCase
     assert_not_equal table, table3
   end
 
-  def test_arel_least_sql
-    books = Book.arel_table
-    node = Arel::Nodes::Least.new([books[:id], books[:pages]])
-    sql = to_sql(node)
-
-    assert_equal "LEAST(#{q("books.id")}, #{q("books.pages")})", sql
-  end
-
-  def test_arel_greatest_sql
-    books = Book.arel_table
-    node = Arel::Nodes::Greatest.new([books[:id], books[:pages]])
-    sql = to_sql(node)
-
-    assert_equal "GREATEST(#{q("books.id")}, #{q("books.pages")})", sql
-  end
-
-  def test_arel_least_with_literal_and_attribute
-    books = Book.arel_table
-    node = Arel::Nodes::Least.new([1000, books[:pages]])
-    sql = to_sql(node)
-
-    assert_equal "LEAST(1000, #{q("books.pages")})", sql
-  end
-
   private
     def exec_query(node)
       @connection.exec_query(unwrap_sql(to_sql(node)))

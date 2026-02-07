@@ -106,21 +106,20 @@ Inventory.update_in_bulk({
 ```
 
 Built-in formulas:
-- `:add :subtract :min :max :concat_append :concat_prepend`
+- `:add :subtract :concat_append :concat_prepend`
 
 Custom formulas are supported by providing a `Proc`. The proc takes `(lhs,rhs,model)` and must return an **Arel node**.
 Here `lhs` and `rhs` are instances of `Arel::Attribute` corresponding to the target table and values table respectively.
 
 ```ruby
-# Restock some products, but cap inventory at some maximum amount.
-# LEAST(metadata.max_stock, inventories.quantity + t.quantity)
-add_capped = proc |lhs, rhs| do
-  Arel::Nodes::Least.new([Arel::Attribute.new("metadata", "max_stock"), lhs + rhs])
+# Restock some products with a custom expression.
+add_tax = proc do |lhs, rhs|
+  lhs + rhs + 1
 end
-Inventory.joins(:metadata).update_in_bulk({
+Inventory.update_in_bulk({
   "Christmas balls" => { quantity: 300 },
   "Christmas tree"  => { quantity: 10 }
-}, formulas: { quantity: add_capped })
+}, formulas: { quantity: add_tax })
 ```
 
 ## Notes

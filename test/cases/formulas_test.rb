@@ -66,27 +66,6 @@ class FormulasTest < TestCase
     })
   end
 
-  def test_formulas_min
-    ProductStock.update_in_bulk({
-      "Tree" => { quantity: 5 },
-      "Toy train" => { quantity: 15 }
-    }, formulas: { quantity: :min })
-
-    assert_model_delta(ProductStock, { "Tree" => { quantity: 5 } })
-  end
-
-  def test_formulas_max
-    ProductStock.update_in_bulk({
-      "Stockings" => { quantity: 5 },
-      "Sweater" => { quantity: 2 }
-    }, formulas: { quantity: :max })
-
-    assert_model_delta(ProductStock, {
-      "Stockings" => { quantity: 5 },
-      "Sweater" => { quantity: 2 }
-    })
-  end
-
   def test_formulas_applied_only_to_specified_rows_and_columns
     Book.update_in_bulk({
       1 => { name: " X", pages: 100 },
@@ -113,7 +92,7 @@ class FormulasTest < TestCase
 
   def test_custom_formula_proc_arity_2
     add_proc = lambda do |lhs, rhs|
-      Arel::Nodes::InfixOperation.new("+", lhs, rhs)
+      lhs + rhs + 1
     end
 
     ProductStock.update_in_bulk({
@@ -122,8 +101,8 @@ class FormulasTest < TestCase
     }, formulas: { quantity: add_proc })
 
     assert_model_delta(ProductStock, {
-      "Tree" => { quantity: 15 },
-      "Toy train" => { quantity: 13 }
+      "Tree" => { quantity: 16 },
+      "Toy train" => { quantity: 14 }
     })
   end
 
@@ -216,24 +195,6 @@ class FormulasTest < TestCase
       1 => { col_decimal: BigDecimal("7.25") },
       2 => { col_decimal: BigDecimal("20.00") }
     })
-  end
-
-  def test_formulas_min_date
-    TypeVariety.update_in_bulk({
-      1 => { col_date: Date.new(2024, 6, 15) }, # earlier than fixture 2025-01-15 → takes new
-      2 => { col_date: Date.new(2026, 1, 1) }   # later than fixture 2025-06-30 → keeps old
-    }, formulas: { col_date: :min })
-
-    assert_model_delta(TypeVariety, { 1 => { col_date: Date.new(2024, 6, 15) } })
-  end
-
-  def test_formulas_max_datetime
-    TypeVariety.update_in_bulk({
-      1 => { col_datetime: Time.utc(2020, 1, 1) }, # earlier → keeps old
-      2 => { col_datetime: Time.utc(2030, 1, 1) }  # later → takes new
-    }, formulas: { col_datetime: :max })
-
-    assert_model_delta(TypeVariety, { 2 => { col_datetime: Time.utc(2030, 1, 1) } })
   end
 
   def test_rejects_subtract_below_zero

@@ -4,7 +4,7 @@ require "active_support/core_ext/enumerable"
 
 module ActiveRecord::UpdateInBulk
   class Builder # :nodoc:
-    FORMULAS = [:add, :subtract, :concat_append, :concat_prepend, :min, :max].freeze
+    FORMULAS = [:add, :subtract, :concat_append, :concat_prepend].freeze
     SAFE_COMPARISON_TYPES = [:boolean, :string, :text, :integer, :float, :decimal].freeze
 
     class << self
@@ -58,10 +58,6 @@ module ActiveRecord::UpdateInBulk
           lhs.concat(rhs)
         when :concat_prepend
           rhs.concat(lhs)
-        when :min
-          lhs.least(rhs)
-        when :max
-          lhs.greatest(rhs)
         when Proc
           node = apply_proc_formula(formula, lhs, rhs, model)
           unless Arel.arel_node?(node)
