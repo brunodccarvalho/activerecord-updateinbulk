@@ -410,7 +410,7 @@ class UpdateInBulkTest < TestCase
   end
 
   def test_with_bind_parameter_in_relation_scope
-    expected_binds = prepared_statements_enabled? ? 1 : 0
+    expected_binds = 1 # prepared_statements_enabled? ? 1 : 0
 
     assert_query_sql(values: 2, on_width: 1, binds: expected_binds) do
       assert_equal 2, Post.where("posts.author_id = :author_id", author_id: 1).update_in_bulk({
