@@ -91,8 +91,11 @@ module ActiveRecord::UpdateInBulk
     #   })
     #
     def update_in_bulk(updates, values = nil, record_timestamps: nil, formulas: nil)
-      unless limit_value.nil? && offset_value.nil? && order_values.empty? && group_values.empty? && having_clause.empty?
-        raise NotImplementedError, "No support to update grouped or ordered relations (offset, limit, order, group, having clauses)"
+      unless limit_value.nil? && offset_value.nil? && group_values.empty? && having_clause.empty?
+        raise NotImplementedError, "No support to update relations with offset, limit, group, or having clauses"
+      end
+      if order_values.any? && !Builder.ignore_scope_order
+        raise NotImplementedError, "No support to update ordered relations (order clause)"
       end
 
       conditions, assigns = Builder.normalize_updates(model, updates, values)
@@ -105,6 +108,7 @@ module ActiveRecord::UpdateInBulk
 
         arel = eager_loading? ? apply_join_dependency.arel : arel()
         arel.source.left = table
+        arel.ast.orders = [] if Builder.ignore_scope_order
 
         values_table, conditions, set_assignments = Builder.new(
           self,

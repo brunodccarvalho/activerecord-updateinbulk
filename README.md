@@ -125,7 +125,9 @@ The `UPDATE` is single-shot in any compliant database:
 
 ## Limitations
 
-There is no support for `ORDER BY`, `LIMIT`, `OFFSET`, `GROUP` or `HAVING` clauses in the relation.
+By default `ORDER BY` scopes are ignored for `update_in_bulk` (configurable via railtie setting
+`config.active_record_update_in_bulk.ignore_scope_order = true/false`).
+There is no support for `LIMIT`, `OFFSET`, `GROUP` or `HAVING` clauses in the relation.
 
 The implementation does not automatically batch (nor reject) impermissibly large queries. The size of the values table is `rows * columns` when all rows assign to the same columns, or `rows * (distinct_columns + 1)` when the assign columns are not uniform (an extra bitmask indicator column is used).
 

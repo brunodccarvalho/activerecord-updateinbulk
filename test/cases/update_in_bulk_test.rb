@@ -484,6 +484,41 @@ class UpdateInBulkTest < TestCase
     end
   end
 
+  def test_with_order_scope_is_ignored_by_default
+    original = ActiveRecord::UpdateInBulk::Builder.ignore_scope_order
+    ActiveRecord::UpdateInBulk::Builder.ignore_scope_order = true
+
+    assert_no_queries_match(/\sORDER BY\s/i) do
+      assert_equal 2, Post.where(id: [1, 2]).order(id: :desc).update_in_bulk({
+        1 => { title: "ordered 1" },
+        2 => { title: "ordered 2" },
+        3 => { title: "ordered 3" }
+      })
+    end
+
+    assert_model_delta(Post, {
+      1 => { title: "ordered 1" },
+      2 => { title: "ordered 2" }
+    })
+  ensure
+    ActiveRecord::UpdateInBulk::Builder.ignore_scope_order = original
+  end
+
+  def test_with_order_scope_can_be_forbidden
+    original = ActiveRecord::UpdateInBulk::Builder.ignore_scope_order
+    ActiveRecord::UpdateInBulk::Builder.ignore_scope_order = false
+
+    assert_raises(NotImplementedError, match: /order clause/) do
+      Post.where(id: [1, 2]).order(id: :desc).update_in_bulk({
+        1 => { title: "ordered 1" },
+        2 => { title: "ordered 2" },
+        3 => { title: "ordered 3" }
+      })
+    end
+  ensure
+    ActiveRecord::UpdateInBulk::Builder.ignore_scope_order = original
+  end
+
   def test_with_nil_condition
     assert_raises(NotImplementedError, match: /NULL condition/) do
       Book.update_in_bulk [

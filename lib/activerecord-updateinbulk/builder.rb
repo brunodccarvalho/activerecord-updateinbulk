@@ -9,6 +9,7 @@ module ActiveRecord::UpdateInBulk
 
     class << self
       attr_accessor :values_table_name
+      attr_accessor :ignore_scope_order
 
       # Normalize all input formats into separated format [conditions, assigns].
       def normalize_updates(model, updates, values = nil)
@@ -115,6 +116,7 @@ module ActiveRecord::UpdateInBulk
         end
     end
     self.values_table_name = "t"
+    self.ignore_scope_order = true
 
     attr_reader :model, :connection
 
