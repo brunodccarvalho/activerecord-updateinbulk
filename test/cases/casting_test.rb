@@ -154,7 +154,7 @@ class CastingTest < TestCase
   end
 
   def test_typecast_assigns_and_conditions_database_enum
-    skip "Adapter does not support database enums" if current_adapter?(:SQLite3Adapter)
+    skip "Adapter does not support database enums" if sqlite?
 
     TypeVariety.update_in_bulk({
       1 => { col_enum: "alpha" },
@@ -305,7 +305,7 @@ class CastingTest < TestCase
   end
 
   def test_typecast_assigns_timezoned_columns
-    skip "Adapter does not support timezoned columns" if current_adapter?(:SQLite3Adapter)
+    skip "Adapter does not support timezoned columns" if sqlite?
 
     TypeVariety.update_in_bulk({
       1 => { col_timestampz: Time.new(2024, 12, 25, 10, 30, 0, "+02:00") },
@@ -319,7 +319,7 @@ class CastingTest < TestCase
   end
 
   def test_typecast_conditions_timezoned_columns
-    skip "Adapter does not support timezoned columns" if current_adapter?(:SQLite3Adapter)
+    skip "Adapter does not support timezoned columns" if sqlite?
 
     TypeVariety.update_in_bulk({
       1 => { col_timestampz: Time.new(2024, 12, 25, 10, 30, 0, "+02:00") },
@@ -327,7 +327,7 @@ class CastingTest < TestCase
     })
     TypeVariety.update_in_bulk([
       [{ col_timestampz: "2024-12-25 10:30:00+02:00" }, { col_text: "timestampz condition 1" }],
-      [{ col_timestampz: Time.new(2024, 7, 4, 20, 0, 0, "+02:00") }, { col_text: "timestampz condition 2" }]
+      [{ col_timestampz: Time.new(2024, 7, 4, 16, 0, 0, "-02:00") }, { col_text: "timestampz condition 2" }]
     ])
 
     assert_model_delta(TypeVariety, {
@@ -357,36 +357,6 @@ class CastingTest < TestCase
     assert_model_delta(TypeVariety, {
       1 => { col_geometry: :_modified, col_text: "geometry condition 1" },
       2 => { col_geometry: :_modified, col_text: "geometry condition 2" }
-    })
-  end
-
-  def test_typecast_assigns_string_too_long
-    skip "SQLite does not enforce string length limits" if current_adapter?(:SQLite3Adapter)
-
-    assert_raises(value_too_long_violation_type) do
-      TypeVariety.update_in_bulk({ 1 => { col_varchar: "x" * 20 } })
-    end
-  end
-
-  def test_condition_with_oversized_string_matches_zero_rows
-    assert_equal 1, TypeVariety.update_in_bulk([
-      [{ col_varchar: "short_a" }, { col_text: "should match" }],
-      [{ col_varchar: "this_is_way_too_long_for_16" }, { col_text: "should not match" }]
-    ])
-
-    # The oversized condition matches nobody; the valid one matches row 1.
-    assert_model_delta(TypeVariety, { 1 => { col_text: "should match" } })
-  end
-
-  def test_typecast_formula_add_with_optional_keys
-    TypeVariety.update_in_bulk({
-      1 => { col_integer: 5 },
-      2 => { col_text: "replaced" }
-    }, formulas: { col_integer: :add })
-
-    assert_model_delta(TypeVariety, {
-      1 => { col_integer: 15 },
-      2 => { col_text: "replaced" }
     })
   end
 

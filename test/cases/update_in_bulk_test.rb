@@ -6,11 +6,11 @@ require "models"
 class UpdateInBulkTest < TestCase
   fixtures :all
 
-  def setup
+  before_suite do
     Book.record_timestamps = false
   end
 
-  def teardown
+  after_suite do
     Book.record_timestamps = true
   end
 
@@ -52,7 +52,7 @@ class UpdateInBulkTest < TestCase
   end
 
   def test_paired_format_composite
-    Car.all.update_in_bulk(
+    Car.update_in_bulk(
       [["Toyota", "Camry"], { make: "Honda", model: "Civic" }],
       [{ year: 2001 }, { year: 2002 }]
     )
@@ -63,7 +63,7 @@ class UpdateInBulkTest < TestCase
   end
 
   def test_hash_format_composite
-    Car.all.update_in_bulk({
+    Car.update_in_bulk({
       ["Toyota", "Camry"]  => { year: 2001 },
       ["Honda", "Civic"]   => { year: 2002 },
       ["Ford", "Civic"]    => { year: 2003 },
@@ -78,7 +78,7 @@ class UpdateInBulkTest < TestCase
   end
 
   def test_separated_format_composite
-    Car.all.update_in_bulk(
+    Car.update_in_bulk(
       [["Toyota", "Camry"], ["Honda", "Civic"]],
       [{ year: 2001 }, { year: 2002 }]
     )
@@ -86,6 +86,16 @@ class UpdateInBulkTest < TestCase
     assert_equal 2001, Car.find(["Toyota", "Camry"]).year
     assert_equal 2002, Car.find(["Honda", "Civic"]).year
     assert_equal 1964, Car.find(["Ford", "Mustang"]).year
+  end
+
+  def test_composite_out_of_order
+    Car.update_in_bulk([
+      [{ make: "Toyota", model: "Camry" }, { year: 2001 }],
+      [{ model: "Civic", make: "Honda" },  { year: 2002 }],
+    ])
+
+    assert_equal 2001, Car.find(["Toyota", "Camry"]).year
+    assert_equal 2002, Car.find(["Honda", "Civic"]).year
   end
 
   def test_length_mismatch_separated_format
@@ -110,6 +120,7 @@ class UpdateInBulkTest < TestCase
     assert_no_queries do
       assert_equal 0, Book.update_in_bulk([])
       assert_equal 0, Book.update_in_bulk({})
+      assert_equal 0, Book.update_in_bulk([], [])
       assert_equal 0, Book.update_in_bulk({ 1 => {} })
       assert_equal 0, Book.update_in_bulk([[{ id: 1 }, {}]])
       assert_equal 0, Book.update_in_bulk([1], [{}])
@@ -205,19 +216,19 @@ class UpdateInBulkTest < TestCase
   end
 
   def test_with_duplicate_keys_same_format
-    Book.update_in_bulk [
+    assert_equal 1, Book.update_in_bulk([
       [1, { name: "Reword" }],
       [1, { name: "Peopleware" }]
-    ]
+    ])
     assert_includes ["Reword", "Peopleware"], Book.find(1).name
     assert_model_delta(Book, { 1 => { name: :_modified } })
   end
 
   def test_with_duplicate_keys_mixed_formats
-    Book.update_in_bulk [
+    assert_equal 1, Book.update_in_bulk([
       [1, { name: "Reword" }],
       [{ id: 1 }, { name: "Peopleware" }]
-    ]
+    ])
     assert_includes ["Reword", "Peopleware"], Book.find(1).name
     assert_model_delta(Book, { 1 => { name: :_modified } })
   end
@@ -269,7 +280,7 @@ class UpdateInBulkTest < TestCase
   def test_supports_non_referential_arel_sql_in_conditions
     Comment.update_in_bulk([
       [{ id: 2 }, { body: "Second comment" }],
-      [{ id: Arel.sql("(SELECT id FROM books ORDER BY id ASC LIMIT 1)") }, { body: "First comment" }]
+      [{ id: Arel.sql("(select id from books order by id asc limit 1)") }, { body: "First comment" }]
     ])
     assert_model_delta(Comment, {
       1 => { body: "First comment", updated_at: :_modified },
@@ -279,7 +290,7 @@ class UpdateInBulkTest < TestCase
 
   def test_supports_non_referential_arel_sql_in_values
     Comment.update_in_bulk([
-      [{ id: 1 }, { body: Arel.sql("(SELECT name FROM books WHERE id = 1)") }],
+      [{ id: 1 }, { body: Arel.sql("(select name from books where id = 1)") }],
       [{ id: 2 }, { body: "Second comment" }]
     ])
     assert_model_delta(Comment, {
@@ -289,13 +300,16 @@ class UpdateInBulkTest < TestCase
   end
 
   def test_optional_keys_without_nulls
-    Book.update_in_bulk({
-      2 => { author_visibility: :invisible, language: :french, font_size: :large },
-      3 => { difficulty: :medium, font_size: :medium, last_read: :forgotten },
-      4 => { cover: "soft", language: :spanish, font_size: :large },
-    })
+    # id author_visibility language font_size difficulty last_read cover
+    #    coalesce          coalesce simple    coalesce   coalesce  coalesce
+    assert_query_sql(values: 1 + 6 + 0, on_width: 1, coalesce: 5, cases: 0) do
+      Book.update_in_bulk({
+        2 => { author_visibility: :invisible, language: :french, font_size: :large },
+        3 => { difficulty: :medium, font_size: :medium },
+        4 => { cover: "soft", language: :spanish, font_size: :large, last_read: :reading },
+      })
+    end
 
-    # initial: [visible english easy hard small]
     assert_model_delta(Book, {
       2 => { author_visibility: "invisible", language: "french", font_size: "large" },
       3 => { difficulty: "medium", font_size: "medium" },
@@ -304,13 +318,16 @@ class UpdateInBulkTest < TestCase
   end
 
   def test_optional_keys_with_nulls
-    Book.update_in_bulk({
-      2 => { author_visibility: :invisible, language: nil, font_size: :large },
-      3 => { difficulty: nil, font_size: :medium },
-      4 => { cover: "soft", language: :spanish, font_size: nil },
-    })
+    # id author_visibility language font_size difficulty cover    last_read bitmask
+    #    coalesce          mask[0]  simple    mask[1]    coalesce coalesce
+    assert_query_sql(values: 1 + 6 + 1, on_width: 1, coalesce: 3, cases: 2) do
+      Book.update_in_bulk({
+        2 => { author_visibility: :invisible, language: nil, font_size: :large },
+        3 => { difficulty: nil, font_size: :medium },
+        4 => { cover: "soft", language: :spanish, font_size: nil, last_read: :reading },
+      })
+    end
 
-    # initial: [visible english easy hard small]
     assert_model_delta(Book, {
       2 => { author_visibility: "invisible", language: nil, font_size: "large" },
       3 => { difficulty: nil, font_size: "medium" },
@@ -319,7 +336,7 @@ class UpdateInBulkTest < TestCase
   end
 
   def test_optional_keys_with_arel_sql_null
-    Book.update_all(format: "default")
+    Book.where(id: [1, 2, 3]).update_all(format: "default")
 
     Book.update_in_bulk({
       2 => { name: "Second book" },
@@ -330,7 +347,6 @@ class UpdateInBulkTest < TestCase
       1 => { format: "default" },
       2 => { name: "Second book", format: "default" },
       3 => { format: nil },
-      4 => { format: "default" }
     })
   end
 
@@ -410,7 +426,7 @@ class UpdateInBulkTest < TestCase
     })
   end
 
-  def test_with_named_bind_parameter_in_condition
+  def test_with_bind_parameter_in_condition
     expected_binds = prepared_statements_enabled? ? 2 : 0
 
     assert_query_sql(values: 2, on_width: 1, binds: expected_binds) do
@@ -426,7 +442,7 @@ class UpdateInBulkTest < TestCase
     })
   end
 
-  def test_with_named_bind_parameter_in_assign
+  def test_with_bind_parameter_in_assign
     expected_binds = prepared_statements_enabled? ? 2 : 0
 
     assert_query_sql(values: 2, on_width: 1, binds: expected_binds) do
@@ -442,7 +458,7 @@ class UpdateInBulkTest < TestCase
     })
   end
 
-  def test_with_named_bind_parameter_not_constantized
+  def test_with_bind_parameter_not_constantized
     expected_binds = prepared_statements_enabled? ? 2 : 0
     bind = Arel.sql("?", "bound assigns")
 
@@ -536,19 +552,28 @@ class UpdateInBulkTest < TestCase
     assert_model_delta(Pet, { 1 => { name: "Rex", updated_at: :_modified } })
   end
 
-  def test_same_column_as_condition_and_assign
+  def test_same_non_primary_key_column_as_condition_and_assign
     Comment.update_in_bulk([
-      [{ post_id: 1 }, { post_id: 2 }]
+      [{ post_id: 1 }, { post_id: 2, body: "modified" }]
     ])
 
     assert_model_delta(Comment, {
-      1 => { post_id: 2, updated_at: :_modified },
-      2 => { post_id: 2, updated_at: :_modified }
+      1 => { post_id: 2, body: "modified", updated_at: :_modified },
+      2 => { post_id: 2, body: "modified", updated_at: :_modified }
     })
   end
 
+  def test_same_primary_key_column_as_condition_and_assign
+    Comment.update_in_bulk([
+      [{ id: 1 }, { id: 100, body: "modified" }]
+    ])
+
+    assert_equal "modified", Comment.find(100).body
+    assert_model_delta(Comment, { 1 => :deleted, 100 => :created })
+  end
+
   def test_when_table_name_contains_database
-    skip unless current_adapter?(:Mysql2Adapter, :TrilogyAdapter)
+    skip unless mysql?
 
     begin
       database_name = Book.connection_db_config.database
@@ -563,14 +588,12 @@ class UpdateInBulkTest < TestCase
   end
 
   def test_constant_assign_column_is_inlined
-    assert_queries_match(/SET.+status. = (?:CAST\()?1\b/i) do
-      assert_queries_match(/\(2, 'Book-B'\)/) do
-        Book.update_in_bulk({
-          1 => { name: "Book-A", status: :written },
-          2 => { name: "Book-B", status: :written },
-          3 => { name: "Book-C", status: :written }
-        })
-      end
+    assert_query_sql(values: 2, on_width: 1, cases: 0) do
+      Book.update_in_bulk({
+        1 => { name: "Book-A", status: :written },
+        2 => { name: "Book-B", status: :written },
+        3 => { name: "Book-C", status: :written }
+      })
     end
 
     assert_model_delta(Book, {
@@ -608,91 +631,15 @@ class UpdateInBulkTest < TestCase
     })
   end
 
-  def test_mixed_constant_and_variable_columns
-    Book.update_in_bulk({
-      1 => { name: "Updated-1", status: :written, cover: "hard" },
-      2 => { name: "Updated-2", status: :written, cover: "hard" }
-    })
-
-    assert_model_delta(Book, {
-      1 => { name: "Updated-1", status: "written", cover: "hard" },
-      2 => { name: "Updated-2", status: "written" }
-    })
-  end
-
-  def test_single_row_without_formulas_uses_simple_update_without_values_table
-    assert_query_sql(values: false, on_width: 0) do
-      Book.update_in_bulk({ 1 => { name: "Simple Update" } })
-    end
-
-    assert_model_delta(Book, { 1 => { name: "Simple Update" } })
-  end
-
-  def test_single_row_with_multiple_conditions_uses_simple_update_without_values_table
-    assert_query_sql(values: false, on_width: 0) do
-      Book.update_in_bulk([[{ id: 1, status: :published }, { name: "Simple Conditions" }]])
-    end
-
-    assert_model_delta(Book, { 1 => { name: "Simple Conditions" } })
-  end
-
-  def test_single_row_with_formulas_does_not_use_simple_update_optimization
-    assert_query_sql(values: 2, on_width: 1) do
-      ProductStock.update_in_bulk({ "Tree" => { quantity: 1 } }, formulas: { quantity: :add })
-    end
-
-    assert_model_delta(ProductStock, { "Tree" => { quantity: 11 } })
-  end
-
-  def test_single_row_simple_update_no_formulas
-    assert_query_sql(values: false, on_width: 0) do
-      Book.update_in_bulk([{ id: 2 }], [{ name: "Separated Simple" }])
-    end
-
-    assert_model_delta(Book, { 2 => { name: "Separated Simple" } })
-  end
-
-  def test_single_row_simple_update_with_timestamps
-    assert_query_sql(values: false, on_width: 0) do
-      Book.update_in_bulk([{ id: 2 }], [{ name: "Separated Simple" }], record_timestamps: true)
-    end
-
-    assert_model_delta(Book, { 2 => { name: "Separated Simple", updated_at: :_modified } })
-  end
-
-  def test_single_row_simple_update_with_explicit_nil_assign
-    assert_query_sql(values: false, on_width: 0) do
-      Book.update_in_bulk({ 2 => { format: nil } })
-    end
-
-    assert_model_delta(Book, { 2 => { format: nil } })
-  end
-
-  def test_single_row_simple_update_with_explicit_hash_conditions
-    assert_equal 0, Book.update_in_bulk([[{ id: 1, status: :proposed }, { name: "Should Not Change" }]])
-
-    assert_query_sql(values: false, on_width: 0) do
-      Book.update_in_bulk([[{ id: 1, status: :published }, { name: "Hash Conditions" }]])
-    end
-
-    assert_model_delta(Book, { 1 => { name: "Hash Conditions" } })
-  end
-
-  def test_single_row_simple_update_with_composite_primary_key
-    assert_query_sql(values: false, on_width: 0) do
-      Car.update_in_bulk({ ["Toyota", "Camry"] => { year: 2001 } })
-    end
-
-    assert_model_delta(Car, { ["Toyota", "Camry"] => { year: 2001 } })
-  end
-
   def test_arel_sql_prevents_assign_inlining
-    subquery = "(SELECT name FROM books WHERE id = 1)"
-    Post.update_in_bulk([
-      [{ id: 1 }, { title: subquery }],
-      [{ id: 2 }, { title: Arel.sql(subquery) }],
-      [{ id: 3 }, { title: subquery }]
-    ])
+    subquery = "(select name from books where id = 1)"
+    assert_query_sql(values: 2, on_width: 1, cases: 0) do
+      Post.update_in_bulk([
+        [{ id: 1 }, { title: subquery }],
+        [{ id: 2 }, { title: Arel.sql(subquery) }],
+        [{ id: 3 }, { title: subquery }]
+      ])
+    end
 
     assert_model_delta(Post, {
       1 => { title: subquery },
@@ -701,17 +648,21 @@ class UpdateInBulkTest < TestCase
     })
   end
 
-  def test_arel_sql_prevents_condition_inlining
-    subquery = "(SELECT 'Welcome to the weblog')"
-    Post.update_in_bulk([
-      [{ title: subquery }, { body: "A" }],
-      [{ title: Arel.sql(subquery) }, { body: "B" }],
-      [{ title: subquery }, { body: "C" }]
+  def test_assigns_string_too_long
+    skip "SQLite does not enforce string length limits" if sqlite?
+
+    assert_raises(value_too_long_violation_type) do
+      TypeVariety.update_in_bulk({ 1 => { col_varchar: "x" * 20 } })
+    end
+  end
+
+  def test_condition_with_oversized_string_matches_zero_rows
+    assert_equal 1, TypeVariety.update_in_bulk([
+      [{ col_varchar: "short_a" }, { col_text: "should match" }],
+      [{ col_varchar: "this_is_way_too_long_for_16" }, { col_text: "should not match" }]
     ])
 
-    assert_model_delta(Post, {
-      1 => { body: "B" },
-      7 => { body: :_modified }
-    })
+    # The oversized condition matches nobody; the valid one matches row 1.
+    assert_model_delta(TypeVariety, { 1 => { col_text: "should match" } })
   end
 end

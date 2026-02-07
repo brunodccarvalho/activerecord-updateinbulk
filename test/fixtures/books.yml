@@ -32,3 +32,4 @@ database:
   author_id: 1
   id: 4
   name: "Thoughtleadering"
+  last_read: reading

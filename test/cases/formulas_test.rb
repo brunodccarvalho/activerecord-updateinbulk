@@ -9,7 +9,8 @@ class FormulasTest < TestCase
   def test_formulas_add
     ProductStock.update_in_bulk({
       "Tree" => { quantity: 5 },
-      "Toy train" => { quantity: 3 }
+      "Toy train" => { quantity: 3 },
+      "Stockings" => { quantity: 0 }
     }, formulas: { quantity: :add })
 
     assert_model_delta(ProductStock, {
@@ -21,7 +22,8 @@ class FormulasTest < TestCase
   def test_formulas_subtract
     ProductStock.update_in_bulk({
       "Christmas balls" => { quantity: 30 },
-      "Wreath" => { quantity: 5 }
+      "Wreath" => { quantity: 5 },
+      "Tree" => { quantity: 0 }
     }, formulas: { quantity: :subtract })
 
     assert_model_delta(ProductStock, {
@@ -47,8 +49,9 @@ class FormulasTest < TestCase
     assert_query_sql(values: 2, on_width: 1, cases: 2, whens: 2) do
       Book.update_in_bulk({
         1 => { name: "Classic: " },
-        2 => { name: "Classic: " }
-      }, formulas: { name: :concat_prepend })
+        2 => { name: "Classic: " },
+        3 => { name: "" },
+      }, formulas: { name: :concat_prepend }, record_timestamps: true)
     end
 
     assert_model_delta(Book, {
@@ -96,7 +99,7 @@ class FormulasTest < TestCase
     end
   end
 
-  def test_rejects_formulas_for_unknown_columns
+  def test_rejects_formulas_for_unspecified_columns
     assert_raises(ArgumentError) do
       Book.update_in_bulk({ 1 => { pages: 1 } }, formulas: { name: :concat_append })
     end
@@ -177,8 +180,8 @@ class FormulasTest < TestCase
     ], formulas: { notifications: json_array_append_proc })
 
     assert_model_delta(User, {
-      User.find_by!(name: "David").id => { notifications: ["Second", "Welcome"] },
-      User.find_by!(name: "Joao").id => { notifications: ["Third", "Primeira", "Segunda"] }
+      1 => { notifications: ["Second", "Welcome"] },
+      2 => { notifications: ["Third", "Primeira", "Segunda"] }
     })
   end
 
@@ -191,9 +194,9 @@ class FormulasTest < TestCase
       formulas: { notifications: json_array_rotating_prepend_proc })
 
     assert_model_delta(User, {
-      User.find_by!(name: "Albert").id => { notifications: ["Hello", "One", "Two", "Three"] },
-      User.find_by!(name: "Bernard").id => { notifications: ["Hello", "One", "Two", "Three", "Four"] },
-      User.find_by!(name: "Carol").id => { notifications: ["Hello", "One", "Two", "Three", "Four"] }
+      3 => { notifications: ["Hello", "One", "Two", "Three"] },
+      4 => { notifications: ["Hello", "One", "Two", "Three", "Four"] },
+      5 => { notifications: ["Hello", "One", "Two", "Three", "Four"] }
     })
   end
 
@@ -275,13 +278,13 @@ class FormulasTest < TestCase
     def json_array_append_proc
       return unless ActiveRecord::Base.connection.supports_json?
 
-      @json_array_append_proc ||= if current_adapter?(:PostgreSQLAdapter)
+      @json_array_append_proc ||= if postgres?
         lambda do |lhs, rhs, model|
           lhs_sql = arel_sql(lhs, model.connection)
           rhs_sql = arel_sql(rhs, model.connection)
           Arel.sql("jsonb_build_array(#{rhs_sql}) || COALESCE(#{lhs_sql}::jsonb, '[]'::jsonb)")
         end
-      elsif current_adapter?(:Mysql2Adapter, :TrilogyAdapter)
+      elsif mysql?
         lambda do |lhs, rhs, model|
           lhs_sql = arel_sql(lhs, model.connection)
           rhs_sql = arel_sql(rhs, model.connection)
@@ -293,7 +296,7 @@ class FormulasTest < TestCase
     def json_array_rotating_prepend_proc
       return unless ActiveRecord::Base.connection.supports_json?
 
-      @json_array_rotating_prepend_proc ||= if current_adapter?(:PostgreSQLAdapter)
+      @json_array_rotating_prepend_proc ||= if postgres?
         lambda do |lhs, rhs, model|
           lhs_sql = arel_sql(lhs, model.connection)
           rhs_sql = arel_sql(rhs, model.connection)
@@ -304,7 +307,7 @@ class FormulasTest < TestCase
              WHERE idx <= 5)
           SQL
         end
-      elsif current_adapter?(:Mysql2Adapter, :TrilogyAdapter)
+      elsif mysql?
         lambda do |lhs, rhs, model|
           lhs_sql = arel_sql(lhs, model.connection)
           rhs_sql = arel_sql(rhs, model.connection)

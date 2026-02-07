@@ -10,19 +10,19 @@ class ValuesTableTest < TestCase
     @connection = ActiveRecord::Base.connection
   end
 
-  def test_values_table_columns
+  def test_arel_values_table_columns
     table = Arel::Nodes::ValuesTable.new(:data, [[1, "one"], [2, "two"]], default_columns(2))
 
     assert_equal default_columns(2), table.columns
   end
 
-  def test_values_table_columns_explicit
+  def test_arel_values_table_columns_explicit
     table = Arel::Nodes::ValuesTable.new(:data, [[1, "one"]], %w[first second])
 
     assert_equal ["first", "second"], table.columns
   end
 
-  def test_values_table_attribute_lookup_by_index_and_symbol
+  def test_arel_values_table_attribute_lookup_by_index_and_symbol
     table = Arel::Nodes::ValuesTable.new(:data, [[1, "one"]], default_columns(2))
 
     assert_equal default_columns(2)[0], table[0].name
@@ -31,7 +31,7 @@ class ValuesTableTest < TestCase
     assert_equal default_columns(2)[0], table[default_columns(2)[0]].name
   end
 
-  def test_values_table_attribute_lookup_uses_aliases
+  def test_arel_values_table_attribute_lookup_uses_aliases
     table = Arel::Nodes::ValuesTable.new(:data, [[1, "one"]], %w[first second])
 
     assert_equal "first", table[0].name
@@ -56,7 +56,7 @@ class ValuesTableTest < TestCase
     assert_equal [[1, "one"], [2, "two"]], result.rows
   end
 
-  def test_values_table_cte_plain
+  def test_arel_values_table_cte_plain
     table = Arel::Nodes::ValuesTable.new(:data, [[1, "one"], [2, "two"]], default_columns(2))
     query = Arel::SelectManager.new.with(table.to_cte).from("data").project(Arel.star)
     result = exec_query(query)
@@ -65,7 +65,7 @@ class ValuesTableTest < TestCase
     assert_equal [[1, "one"], [2, "two"]], result.rows
   end
 
-  def test_values_table_cte_with_aliases
+  def test_arel_values_table_cte_with_aliases
     table = Arel::Nodes::ValuesTable.new(:data, [[1, "one"], [2, "two"]], %w[alias1 alias2])
     query = Arel::SelectManager.new.with(table.to_cte).from("data").project(Arel.star)
     result = exec_query(query)
@@ -74,7 +74,7 @@ class ValuesTableTest < TestCase
     assert_equal [[1, "one"], [2, "two"]], result.rows
   end
 
-  def test_values_table_alias_in_join
+  def test_arel_values_table_alias_in_join
     columns = default_columns(2)
     table = Arel::Nodes::ValuesTable.new(:data, [[1, "One"], [2, "Two"], [3, "Three"]], columns)
     aliased = table.alias("data")
@@ -89,7 +89,7 @@ class ValuesTableTest < TestCase
     assert_equal [[1, "One"], [2, "Two"]], result.rows
   end
 
-  def test_values_table_from_without_alias
+  def test_arel_values_table_from_without_alias
     table = Arel::Nodes::ValuesTable.new(:data, [[1, "one"]], default_columns(2))
     sql = to_sql(table.from(nil).project(Arel.star))
 
@@ -97,7 +97,7 @@ class ValuesTableTest < TestCase
     assert_no_match(/\sdata\b/, sql)
   end
 
-  def test_values_table_equality_and_hash
+  def test_arel_values_table_equality_and_hash
     columns = default_columns(2)
     table = Arel::Nodes::ValuesTable.new(:data, [[1, "one"]], columns)
     table2 = Arel::Nodes::ValuesTable.new(:data, [[1, "one"]], columns)
@@ -108,7 +108,7 @@ class ValuesTableTest < TestCase
     assert_not_equal table, table3
   end
 
-  def test_least_sql
+  def test_arel_least_sql
     books = Book.arel_table
     node = Arel::Nodes::Least.new([books[:id], books[:pages]])
     sql = to_sql(node)
@@ -116,7 +116,7 @@ class ValuesTableTest < TestCase
     assert_equal "LEAST(#{q("books.id")}, #{q("books.pages")})", sql
   end
 
-  def test_greatest_sql
+  def test_arel_greatest_sql
     books = Book.arel_table
     node = Arel::Nodes::Greatest.new([books[:id], books[:pages]])
     sql = to_sql(node)
@@ -124,7 +124,7 @@ class ValuesTableTest < TestCase
     assert_equal "GREATEST(#{q("books.id")}, #{q("books.pages")})", sql
   end
 
-  def test_least_with_literal_and_attribute
+  def test_arel_least_with_literal_and_attribute
     books = Book.arel_table
     node = Arel::Nodes::Least.new([1000, books[:pages]])
     sql = to_sql(node)

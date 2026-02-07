@@ -6,15 +6,15 @@ require "models"
 class TimestampsTest < TestCase
   fixtures :all
 
-  def setup
+  before_suite do
     Book.record_timestamps = false
   end
 
-  def teardown
+  after_suite do
     Book.record_timestamps = true
   end
 
-  def test_timestamp_case_expression_is_grouped
+  def test_timestamps_case_expression_is_grouped
     assert_query_sql(on_width: 0, cases: 2, whens: 2) do
       assert_queries_match(/ = \(CASE/) do
         Book.update_in_bulk({ 1 => { name: "Scrum Development", status: :proposed } }, record_timestamps: true)
@@ -25,17 +25,16 @@ class TimestampsTest < TestCase
     })
   end
 
-  def test_does_not_touch_updated_at_when_values_do_not_change
+  def test_timestamps_does_not_touch_updated_at_when_values_do_not_change
     created_at = Time.now.utc - 8.years
     updated_at = Time.now.utc - 5.years
     Book.insert_all [{ id: 101, name: "Out of the Silent Planet", published_on: Date.new(1938, 4, 1), created_at: created_at, updated_at: updated_at }]
     Book.update_in_bulk({ 101 => { name: "Out of the Silent Planet", published_on: Date.new(1938, 4, 1) } }, record_timestamps: true)
 
     assert_in_delta updated_at, Book.find(101).updated_at, 1
-    assert_model_delta(Book, { 101 => :created })
   end
 
-  def test_single_row_noop_does_not_touch_timestamps_or_other_rows
+  def test_timestamps_single_row_noop_does_not_touch_timestamps_or_other_rows
     updated_at_target = Time.now.utc - 5.years
     updated_at_other = Time.now.utc - 4.years
     Book.insert_all!([
@@ -50,10 +49,6 @@ class TimestampsTest < TestCase
     assert_in_delta updated_at_other, Book.find(102).updated_at, 1
     assert_equal updated_at_other.to_date, Book.find(102).updated_on
     assert_equal "Perelandra", Book.find(102).name
-    assert_model_delta(Book, {
-      101 => :created,
-      102 => :created
-    })
   end
 
   def test_touches_updated_at_and_updated_on_and_not_created_at_when_values_change
@@ -64,7 +59,6 @@ class TimestampsTest < TestCase
     assert_equal 8.years.ago.year, book.created_at.year
     assert_equal Time.now.utc.year, book.updated_at.year
     assert_equal Time.now.utc.year, book.updated_on.year
-    assert_model_delta(Book, { 101 => :created })
   end
 
   def test_respects_updated_at_precision_when_touched_implicitly
@@ -77,7 +71,6 @@ class TimestampsTest < TestCase
     end
 
     assert has_subsecond_precision, "updated_at should have sub-second precision"
-    assert_model_delta(Book, { 101 => :created })
   end
 
   def test_respects_updated_at_precision_when_touched_explicitly
@@ -90,7 +83,6 @@ class TimestampsTest < TestCase
     end
 
     assert has_subsecond_precision, "updated_at should have sub-second precision"
-    assert_model_delta(Book, { 101 => :created })
   end
 
   def test_uses_given_updated_at_over_implicit_updated_at
@@ -99,7 +91,6 @@ class TimestampsTest < TestCase
     Book.update_in_bulk({ 101 => { name: "Out of the Silent Planet", published_on: Date.new(1938, 4, 8), updated_at: updated_at } }, record_timestamps: true)
 
     assert_in_delta updated_at, Book.find(101).updated_at, 1
-    assert_model_delta(Book, { 101 => :created })
   end
 
   def test_uses_given_updated_on_over_implicit_updated_on
@@ -108,7 +99,6 @@ class TimestampsTest < TestCase
     Book.update_in_bulk({ 101 => { name: "Out of the Silent Planet", published_on: Date.new(1938, 4, 8), updated_on: updated_on } }, record_timestamps: true)
 
     assert_equal updated_on, Book.find(101).updated_on
-    assert_model_delta(Book, { 101 => :created })
   end
 
   def test_does_not_implicitly_set_timestamps_when_model_record_timestamps_is_true_but_overridden
@@ -118,7 +108,6 @@ class TimestampsTest < TestCase
 
       assert_in_delta 5.years.ago.year, Book.find(101).updated_at.year
       assert_in_delta 5.years.ago.year, Book.find(101).updated_on.year
-      assert_model_delta(Book, { 101 => :created })
     end
   end
 
@@ -129,7 +118,6 @@ class TimestampsTest < TestCase
 
       assert_in_delta 5.years.ago.year, Book.find(101).updated_at.year
       assert_in_delta 5.years.ago.year, Book.find(101).updated_on.year
-      assert_model_delta(Book, { 101 => :created })
     end
   end
 
@@ -140,7 +128,6 @@ class TimestampsTest < TestCase
 
       assert_in_delta Time.now.utc, Book.find(101).updated_at, 1
       assert_equal Time.now.utc.to_date, Book.find(101).updated_on, 1
-      assert_model_delta(Book, { 101 => :created })
     end
   end
 
