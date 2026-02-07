@@ -8,7 +8,7 @@ module TestSupport
     module_function
 
     def adapter
-      @adapter ||= ENV["ARADAPTER"] || "sqlite3"
+      ENV["ARADAPTER"] || "sqlite3"
     end
 
     def current_adapter?(*types)

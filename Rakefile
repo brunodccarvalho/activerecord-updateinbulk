@@ -12,10 +12,8 @@ require_relative "test/support/database"
 
 ADAPTERS = %w[sqlite3 postgresql mysql2 trilogy].freeze
 
-def database(adapter) = TestSupport::Database.config
-
-def with_connection(adapter)
-  ActiveRecord::Base.establish_connection(database(adapter))
+def with_connection
+  ActiveRecord::Base.establish_connection(TestSupport::Database.config)
   yield
 ensure
   ActiveRecord::Base.connection_pool.disconnect!
@@ -50,20 +48,20 @@ end
 namespace :db do
   desc "Create test database for adapter"
   task :create, [:adapter] do |_, args|
-    adapter = args.fetch(:adapter)
-    ActiveRecord::Tasks::DatabaseTasks.create(database(adapter))
+    ENV["ARADAPTER"] = args.fetch(:adapter)
+    ActiveRecord::Tasks::DatabaseTasks.create(TestSupport::Database.config)
   end
 
   desc "Drop test database for adapter"
   task :drop, [:adapter] do |_, args|
-    adapter = args.fetch(:adapter)
-    ActiveRecord::Tasks::DatabaseTasks.drop(database(adapter))
+    ENV["ARADAPTER"] = args.fetch(:adapter)
+    ActiveRecord::Tasks::DatabaseTasks.drop(TestSupport::Database.config)
   end
 
   desc "Load schema for adapter"
   task :schema, [:adapter] do |_, args|
-    adapter = args.fetch(:adapter)
-    with_connection(adapter) do
+    ENV["ARADAPTER"] = args.fetch(:adapter)
+    with_connection do
       TestSupport::Database.apply_schema!
     end
   end
