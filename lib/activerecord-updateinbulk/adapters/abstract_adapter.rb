@@ -1,8 +1,14 @@
 # frozen_string_literal: true
 
 module ActiveRecord::UpdateInBulk
+  # Extension points mixed into +ActiveRecord::ConnectionAdapters::AbstractAdapter+
+  # and consumed by the builder/visitor pipeline.
+  #
+  # Concrete adapters may override any of these methods to describe their SQL
+  # capabilities and VALUES table semantics.
   module AbstractAdapter
     # Whether the database supports the SQL VALUES table constructor.
+    # When false, +Relation#update_in_bulk+ raises ArgumentError.
     def supports_values_tables?
       true
     end
@@ -36,6 +42,8 @@ module ActiveRecord::UpdateInBulk
     #
     # Returns the typecasted Arel node: a new node or +values_table+ itself,
     # possibly modified in place.
+    #
+    # The default implementation does no explicit type casting.
     def typecast_values_table(values_table, _columns)
       values_table
     end

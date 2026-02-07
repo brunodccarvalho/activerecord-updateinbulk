@@ -10,12 +10,12 @@ module ActiveRecord
       "trilogy" => "abstract_mysql",
     }
 
-    def self.require_adapter(adapter)
+    def self.require_adapter(adapter) # :nodoc:
       adapter = ADAPTER_EXTENSION_MAP.fetch(adapter, adapter)
       require File.join(ADAPTER_PATH, "#{adapter}_adapter")
     end
 
-    def self.load_from_connection_pool(connection_pool)
+    def self.load_from_connection_pool(connection_pool) # :nodoc:
       require_adapter connection_pool.db_config.adapter
     end
   end
@@ -35,8 +35,8 @@ require "activerecord-updateinbulk/querying"
 require "activerecord-updateinbulk/adapters/abstract_adapter"
 
 module ActiveRecord::UpdateInBulk
-  module ConnectionHandler
-    def establish_connection(*args, **kwargs, &block)
+  module ConnectionHandler # :nodoc:
+    def establish_connection(*args, **kwargs, &block) # :nodoc:
       pool = super(*args, **kwargs, &block)
       ActiveRecord::UpdateInBulk.load_from_connection_pool pool
       pool

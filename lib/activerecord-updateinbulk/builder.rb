@@ -3,7 +3,7 @@
 require "active_support/core_ext/enumerable"
 
 module ActiveRecord::UpdateInBulk
-  class Builder
+  class Builder # :nodoc:
     FORMULAS = [:add, :subtract, :concat_append, :concat_prepend, :min, :max].freeze
     SAFE_COMPARISON_TYPES = [:boolean, :string, :text, :integer, :float, :decimal].freeze
 

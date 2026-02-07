@@ -59,6 +59,20 @@ Order.joins(:items).where(items: { status: :shipped }).update_in_bulk({
 })
 ```
 
+### Rails configuration
+
+Railtie options are available at `config.active_record_update_in_bulk`:
+
+- `values_table_alias` (`String`, optional): alias used for generated VALUES tables (default `"t"`).
+- `ignore_scope_order` (`Boolean`, default `true`): when true, ORDER BY scopes are ignored by `update_in_bulk`; when false, ordered relations raise `NotImplementedError`.
+
+Example initializer:
+
+```ruby
+Rails.application.config.active_record_update_in_bulk.values_table_alias = "vals"
+Rails.application.config.active_record_update_in_bulk.ignore_scope_order = true
+```
+
 ### Record timestamps
 
 By default `update_in_bulk` implicitly bumps update timestamps similar to `upsert_all`.
