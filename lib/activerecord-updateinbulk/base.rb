@@ -18,6 +18,18 @@ module ActiveRecord
     def self.load_from_connection_pool(connection_pool) # :nodoc:
       require_adapter connection_pool.db_config.adapter
     end
+
+    def self.register_formula(name, &formula)
+      Builder.register_formula(name, &formula)
+    end
+
+    def self.unregister_formula(name)
+      Builder.unregister_formula(name)
+    end
+
+    def self.registered_formula?(name)
+      Builder.registered_formula?(name)
+    end
   end
 end
 

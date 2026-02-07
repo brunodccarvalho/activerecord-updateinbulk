@@ -4,12 +4,30 @@ require "active_support/core_ext/enumerable"
 
 module ActiveRecord::UpdateInBulk
   class Builder # :nodoc:
-    FORMULAS = [:add, :subtract, :concat_append, :concat_prepend].freeze
     SAFE_COMPARISON_TYPES = [:boolean, :string, :text, :integer, :float, :decimal].freeze
 
     class << self
       attr_accessor :values_table_name
       attr_accessor :ignore_scope_order
+
+      def register_formula(name, &formula)
+        raise ArgumentError, "Missing block" unless formula
+
+        name = name.to_sym
+        if registered_formulas.key?(name)
+          raise ArgumentError, "Formula already registered: #{name.inspect}"
+        end
+
+        registered_formulas[name] = formula
+      end
+
+      def unregister_formula(name)
+        registered_formulas.delete(name.to_sym)
+      end
+
+      def registered_formula?(name)
+        registered_formulas.key?(name.to_sym)
+      end
 
       # Normalize all input formats into separated format [conditions, assigns].
       def normalize_updates(model, updates, values = nil)
@@ -48,39 +66,37 @@ module ActiveRecord::UpdateInBulk
       end
 
       def apply_formula(formula, lhs, rhs, model)
-        formula = formula.to_sym if formula.is_a?(String)
-        case formula
-        when :add
-          lhs + rhs
-        when :subtract
-          lhs - rhs
-        when :concat_append
-          lhs.concat(rhs)
-        when :concat_prepend
-          rhs.concat(lhs)
-        when Proc
-          node = apply_proc_formula(formula, lhs, rhs, model)
-          unless Arel.arel_node?(node)
-            raise ArgumentError, "Custom formula must return an Arel node"
-          end
-          node
+        formula_proc = case formula
+        when Proc then formula
         else
-          raise ArgumentError, "Unknown formula: #{formula.inspect}"
+          registered_formulas.fetch(formula.to_sym) do
+            raise ArgumentError, "Unknown formula: #{formula.inspect}"
+          end
         end
+
+        node = apply_proc_formula(formula_proc, lhs, rhs, model)
+        raise ArgumentError, "Custom formula must return an Arel node" unless Arel.arel_node?(node)
+
+        node
       end
 
       def apply_proc_formula(formula, lhs, rhs, model)
         case formula.arity
-        when 2
-          formula.call(lhs, rhs)
-        when 3
-          formula.call(lhs, rhs, model)
-        else
-          raise ArgumentError, "Custom formula must accept 2 or 3 arguments"
+        when 2 then formula.call(lhs, rhs)
+        else formula.call(lhs, rhs, model)
         end
       end
 
       private
+        def registered_formulas
+          @registered_formulas ||= {
+            add: lambda { |lhs, rhs| lhs + rhs },
+            subtract: lambda { |lhs, rhs| lhs - rhs },
+            concat_append: lambda { |lhs, rhs| lhs.concat(rhs) },
+            concat_prepend: lambda { |lhs, rhs| rhs.concat(lhs) }
+          }
+        end
+
         def normalize_conditions(model, conditions)
           if conditions.is_a?(Hash)
             conditions
@@ -344,7 +360,7 @@ module ActiveRecord::UpdateInBulk
         normalized = formulas.to_h do |key, value|
           [key.to_s, value.is_a?(Proc) ? value : value.to_sym]
         end
-        invalid = normalized.values.reject { |v| v.is_a?(Proc) } - FORMULAS
+        invalid = normalized.values.reject { |v| v.is_a?(Proc) || self.class.registered_formula?(v) }
         if invalid.any?
           raise ArgumentError, "Unknown formula: #{invalid.first.inspect}"
         end

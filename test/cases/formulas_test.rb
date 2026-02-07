@@ -78,16 +78,40 @@ class FormulasTest < TestCase
     })
   end
 
-  def test_rejects_unknown_formulas
-    assert_raises(ArgumentError) do
-      Book.update_in_bulk({ 1 => { name: "Scrum Development" } }, formulas: { name: :mystery })
-    end
-  end
-
   def test_rejects_formulas_for_unspecified_columns
     assert_raises(ArgumentError) do
       Book.update_in_bulk({ 1 => { pages: 1 } }, formulas: { name: :concat_append })
     end
+  end
+
+  def test_register_formula
+    ActiveRecord::UpdateInBulk.register_formula(:double_add) { |lhs, rhs| lhs + rhs + rhs }
+
+    ProductStock.update_in_bulk({
+      "Tree" => { quantity: 5 },
+      "Toy train" => { quantity: 3 }
+    }, formulas: { quantity: :double_add })
+
+    assert_model_delta(ProductStock, {
+      "Tree" => { quantity: 20 },
+      "Toy train" => { quantity: 16 }
+    })
+
+    ActiveRecord::UpdateInBulk.unregister_formula(:double_add)
+    ActiveRecord::UpdateInBulk.register_formula(:dup_formula) { |lhs, rhs| lhs + rhs }
+
+    assert_raises(ArgumentError, match: /unknown formula/i) do
+      Book.update_in_bulk({ 1 => { name: "Scrum Development" } }, formulas: { name: :double_add })
+    end
+    assert_raises(ArgumentError, match: /missing block/i) do
+      ActiveRecord::UpdateInBulk.register_formula(:no_block)
+    end
+    assert_raises(ArgumentError, match: /already registered/i) do
+      ActiveRecord::UpdateInBulk.register_formula(:dup_formula) { |lhs, rhs| lhs - rhs }
+    end
+  ensure
+    ActiveRecord::UpdateInBulk.unregister_formula(:double_add)
+    ActiveRecord::UpdateInBulk.unregister_formula(:dup_formula)
   end
 
   def test_custom_formula_proc_arity_2
