@@ -13,10 +13,8 @@ group :development, :test do
   gem "irb"
   gem "rdoc"
   gem "benchmark-ips"
-end
-
-group :test do
   gem "byebug"
+  gem "minitest"
 end
 
 platforms :ruby do
@@ -25,6 +23,3 @@ platforms :ruby do
   gem "sqlite3"
   gem "trilogy"
 end
-
-gem "minitest"
-gem "rake"
