@@ -15,6 +15,7 @@ AllCops:
     - "*.gemspec"
   Exclude:
     - "app/**/*"
+    - "vendor/**/*"
 
 Performance:
   Exclude:
