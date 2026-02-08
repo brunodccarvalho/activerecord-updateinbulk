@@ -37,4 +37,19 @@ case "$DATABASE" in
     ;;
 esac
 
+case "$DATABASE" in
+  mysql|mysql2|mariadb)
+    export ARADAPTER=mysql2
+    ;;
+  trilogy|trilogy-mysqltrilogy-mariadb)
+    export ARADAPTER=trilogy
+    ;;
+  postgres|postgresql)
+    export ARADAPTER=postgresql
+    ;;
+  sqlite|sqlite3)
+    export ARADAPTER=sqlite3
+    ;;
+esac
+
 exec "$@"

@@ -50,12 +50,12 @@ module TestSupport
     def run_before_suite_callbacks
       setup_fixtures
       self.class.all_before_suite_hooks.each { |hook| instance_exec(&hook) }
-    ensure
-      teardown_fixtures
     end
 
     def run_after_suite_callbacks
       self.class.all_after_suite_hooks.each { |hook| instance_exec(&hook) }
+    ensure
+      teardown_fixtures
     end
   end
 end

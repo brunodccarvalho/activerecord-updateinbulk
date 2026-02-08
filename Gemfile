@@ -15,6 +15,10 @@ group :development, :test do
   gem "benchmark-ips"
 end
 
+group :test do
+  gem "byebug"
+end
+
 platforms :ruby do
   gem "mysql2"
   gem "pg"
@@ -22,8 +26,5 @@ platforms :ruby do
   gem "trilogy"
 end
 
-platforms :ruby do
-  gem "byebug"
-end
-
 gem "minitest"
+gem "rake"

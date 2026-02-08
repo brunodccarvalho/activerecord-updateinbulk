@@ -142,10 +142,8 @@ module ActiveRecord::UpdateInBulk
       resolve_attribute_aliases!
       resolve_read_and_write_keys!
       verify_read_and_write_keys!
-      unless simple_update?
-        detect_constant_columns!
-        serialize_values!
-      end
+      serialize_values!
+      detect_constant_columns! unless simple_update?
     end
 
     def build_arel
@@ -176,26 +174,24 @@ module ActiveRecord::UpdateInBulk
       def build_simple_conditions(table)
         row_conditions = @conditions.first
         read_keys.map do |key|
-          table[key].eq(cast_for_column(row_conditions.fetch(key), table[key]))
+          table[key].eq(quoted_value(row_conditions.fetch(key)))
         end
       end
 
       def build_simple_assignments(table)
         row_assigns = @assigns.first
         write_keys.map do |key|
-          [table[key], cast_for_column(row_assigns.fetch(key), table[key])]
+          [table[key], quoted_value(row_assigns.fetch(key))]
         end
       end
 
       def detect_constant_columns!
         @constant_assigns = {}
-        columns_hash = model.columns_hash
 
         (write_keys - optional_keys).each do |key|
           next if @formulas.key?(key) # need to pass Arel::Attribute as argument to formula
-          next unless SAFE_COMPARISON_TYPES.include?(columns_hash.fetch(key).type)
           first = @assigns.first[key]
-          @constant_assigns[key] = first if @assigns.all? { |a| !opaque_value?(v = a[key]) && v == first }
+          @constant_assigns[key] = first if @assigns.all? { |a| !Arel.arel_node?(v = a[key]) && v == first }
         end
       end
 
@@ -203,14 +199,14 @@ module ActiveRecord::UpdateInBulk
         types = read_keys.index_with { |key| model.type_for_attribute(key) }
         @conditions.each do |row|
           row.each do |key, value|
-            next if opaque_value?(value)
+            next if Arel.arel_node?(value)
             row[key] = ActiveModel::Type::SerializeCastValue.serialize(type = types[key], type.cast(value))
           end
         end
         types = write_keys.index_with { |key| model.type_for_attribute(key) }
         @assigns.each do |row|
           row.each do |key, value|
-            next if opaque_value?(value) || constant_assigns.key?(key)
+            next if Arel.arel_node?(value)
             row[key] = ActiveModel::Type::SerializeCastValue.serialize(type = types[key], type.cast(value))
           end
         end
@@ -290,7 +286,7 @@ module ActiveRecord::UpdateInBulk
           lhs = table[key]
 
           if constant_assigns.key?(key)
-            rhs = Arel::Nodes::Casted.new(constant_assigns[key], lhs)
+            rhs = Arel::Nodes::Quoted.new(constant_assigns[key])
           else
             rhs = values_table[column]
             column += 1
@@ -343,15 +339,11 @@ module ActiveRecord::UpdateInBulk
       # When you assign a value to NULL, we need to use a bitmask to distinguish that
       # row in the values table from rows where the column is not to be assigned at all.
       def might_be_nil_value?(value)
-        value.nil? || opaque_value?(value)
+        value.nil? || Arel.arel_node?(value)
       end
 
-      def opaque_value?(value)
-        Arel.arel_node?(value)
-      end
-
-      def cast_for_column(value, column)
-        opaque_value?(value) ? value : Arel::Nodes::Casted.new(value, column)
+      def quoted_value(value)
+        Arel.arel_node?(value) ? value : Arel::Nodes::Quoted.new(value)
       end
 
       def normalize_formulas(formulas)

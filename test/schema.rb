@@ -100,15 +100,13 @@ ActiveRecord::Schema.define do
     t.datetime :col_datetime
     t.time     :col_time
 
-    if TestSupport::Database.postgres?
-      t.column :col_enum, :launch_stage
-    elsif TestSupport::Database.mysql?
-      t.column :col_enum, "enum('alpha','beta','gamma','omega','theta')"
-    end
+    t.json     :col_json
 
     if TestSupport::Database.postgres?
+      t.column :col_enum, :launch_stage
       t.column :col_timestampz, :timestamptz
     elsif TestSupport::Database.mysql?
+      t.column :col_enum, "enum('alpha','beta','gamma','omega','theta')"
       t.column :col_timestampz, :timestamp
     end
 
@@ -140,6 +138,8 @@ ActiveRecord::Schema.define do
 
     t.binary  :col_binary
     t.boolean :col_boolean
+
+    t.datetime :updated_at
   end
 
   create_table :product_stocks, id: false, force: true do |t|

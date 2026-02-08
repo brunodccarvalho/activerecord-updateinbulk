@@ -622,19 +622,19 @@ class UpdateInBulkTest < TestCase
     end
   end
 
-  def test_constant_assign_column_is_inlined
+  def test_constant_assign_column_is_inlined_after_type_cast
     assert_query_sql(values: 2, on_width: 1, cases: 0) do
-      Book.update_in_bulk({
-        1 => { name: "Book-A", status: :written },
-        2 => { name: "Book-B", status: :written },
-        3 => { name: "Book-C", status: :written }
+      TypeVariety.update_in_bulk({
+        1 => { col_string: "Book-A", col_integer: 300.6, col_boolean: "1" },
+        2 => { col_string: "Book-B", col_integer: "300", col_boolean: "t" },
+        3 => { col_string: "Book-C", col_integer: "+300", col_boolean: true }
       })
     end
 
-    assert_model_delta(Book, {
-      1 => { name: "Book-A", status: "written" },
-      2 => { name: "Book-B", status: "written" },
-      3 => { name: "Book-C", status: "written" }
+    assert_model_delta(TypeVariety, {
+      1 => { col_string: "Book-A", col_integer: 300 },
+      2 => { col_string: "Book-B", col_integer: 300, col_boolean: true },
+      3 => { col_string: "Book-C", col_integer: 300 }
     })
   end
 
@@ -649,20 +649,6 @@ class UpdateInBulkTest < TestCase
     assert_model_delta(ProductStock, {
       "Tree" => { quantity: 15 },
       "Wreath" => { quantity: 55 }
-    })
-  end
-
-  def test_constant_assign_with_mixed_types_is_not_inlined
-    assert_query_sql(values: 3, cases: 0) do
-      Book.update_in_bulk({
-        1 => { name: "Book A", status: :written },
-        2 => { name: "Book B", status: "written" }
-      })
-    end
-
-    assert_model_delta(Book, {
-      1 => { name: "Book A", status: "written" },
-      2 => { name: "Book B", status: "written" }
     })
   end
 

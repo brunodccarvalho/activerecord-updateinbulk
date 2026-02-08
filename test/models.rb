@@ -63,4 +63,6 @@ class User < ActiveRecord::Base; end
 
 class ProductStock < ActiveRecord::Base; end
 
-class TypeVariety < ActiveRecord::Base; end
+class TypeVariety < ActiveRecord::Base
+  self.record_timestamps = false
+end
