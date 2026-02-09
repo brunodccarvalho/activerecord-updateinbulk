@@ -59,7 +59,10 @@ end
 
 class SpecialPost < Post; end
 
-class User < ActiveRecord::Base; end
+class User < ActiveRecord::Base
+  attribute :preferences, :json
+  attribute :notifications, :json
+end
 
 class ProductStock < ActiveRecord::Base; end
 

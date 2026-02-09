@@ -27,6 +27,8 @@ albert:
   name: Albert
   <% if ActiveRecord::Base.connection.supports_json? %>
   notifications: ["One", "Two", "Three"]
+  <% else %>
+  notifications: '["One", "Two", "Three"]'
   <% end %>
 
 bernard:
@@ -34,6 +36,8 @@ bernard:
   name: Bernard
   <% if ActiveRecord::Base.connection.supports_json? %>
   notifications: ["One", "Two", "Three", "Four", "Five"]
+  <% else %>
+  notifications: '["One", "Two", "Three", "Four", "Five"]'
   <% end %>
 
 carol:
@@ -41,4 +45,6 @@ carol:
   name: Carol
   <% if ActiveRecord::Base.connection.supports_json? %>
   notifications: ["One", "Two", "Three", "Four", "Five", "Six"]
+  <% else %>
+  notifications: '["One", "Two", "Three", "Four", "Five", "Six"]'
   <% end %>

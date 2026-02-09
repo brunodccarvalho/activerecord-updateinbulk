@@ -267,8 +267,6 @@ class FormulasTest < TestCase
     end
 
     def json_array_append_proc
-      return unless ActiveRecord::Base.connection.supports_json?
-
       @json_array_append_proc ||= if postgres?
         lambda do |lhs, rhs, model|
           lhs_sql = arel_sql(lhs, model.connection)
@@ -285,8 +283,6 @@ class FormulasTest < TestCase
     end
 
     def json_array_rotating_prepend_proc
-      return unless ActiveRecord::Base.connection.supports_json?
-
       @json_array_rotating_prepend_proc ||= if postgres?
         lambda do |lhs, rhs, model|
           lhs_sql = arel_sql(lhs, model.connection)

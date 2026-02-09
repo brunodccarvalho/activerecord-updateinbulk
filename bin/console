@@ -7,9 +7,9 @@ require "active_record/fixtures"
 require "activerecord-updateinbulk"
 
 require_relative "../test/support/database"
-require_relative "../test/models"
-
 ActiveRecord::Base.establish_connection(TestSupport::Database.config)
+
+require_relative "../test/models"
 TestSupport::Database.apply_schema!
 
 fixture_paths = [File.expand_path("../test/fixtures", __dir__)]

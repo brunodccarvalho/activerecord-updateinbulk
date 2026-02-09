@@ -517,8 +517,6 @@ class CastingTest < TestCase
   end
 
   def test_typecast_assigns_complex_jsons
-    skip unless ActiveRecord::Base.connection.supports_json?
-
     assert_query_sql(values: 2) do
       User.update_in_bulk({
         1 => { preferences: { color: "blue" } },
@@ -535,8 +533,6 @@ class CastingTest < TestCase
   end
 
   def test_typecast_for_primitive_jsons
-    skip unless ActiveRecord::Base.connection.supports_json?
-
     assert_query_sql(values: 2, on_width: 1, cases: 0) do
       User.update_in_bulk({
         1 => { notifications: 1 },
@@ -555,8 +551,6 @@ class CastingTest < TestCase
   end
 
   def test_typecast_for_jsons_is_constantized_if_equal_serialization
-    skip unless ActiveRecord::Base.connection.supports_json?
-
     assert_query_sql(values: 1, on_width: 1, cases: 0) do
       User.update_in_bulk({
         1 => { notifications: { "a" => 1, "b" => 2 } },
