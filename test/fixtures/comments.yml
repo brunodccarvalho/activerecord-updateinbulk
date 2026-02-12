@@ -20,6 +20,7 @@ does_it_hurt:
 eager_sti_on_associations_vs_comment:
   id: 5
   post_id: 4
+  parent_id: 1
   body: Very Special type
   type: VerySpecialComment
 

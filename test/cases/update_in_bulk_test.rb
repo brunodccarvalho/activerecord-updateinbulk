@@ -177,6 +177,42 @@ class UpdateInBulkTest < TestCase
     end
   end
 
+  def test_ignored_columns_reject_assigns_and_conditions
+    assert_raises(ActiveRecord::UnknownAttributeError) do
+      PostWithIgnoredBody.update_in_bulk({ 1 => { body: "ignored column assign" } })
+    end
+
+    assert_raises(ActiveRecord::UnknownAttributeError) do
+      PostWithIgnoredBody.update_in_bulk([
+        [{ body: "Such a lovely day" }, { title: "ignored column condition" }]
+      ])
+    end
+  end
+
+  def test_only_columns_reject_non_allowlisted_columns
+    assert_raises(ActiveRecord::UnknownAttributeError) do
+      PostWithOnlyColumns.update_in_bulk({ 1 => { body: "non allowlisted assign" } })
+    end
+
+    assert_raises(ActiveRecord::UnknownAttributeError) do
+      PostWithOnlyColumns.update_in_bulk([
+        [{ body: "Such a lovely day" }, { title: "non allowlisted condition" }]
+      ])
+    end
+  end
+
+  def test_only_columns_allow_allowlisted_columns
+    assert_equal 2, PostWithOnlyColumns.update_in_bulk([
+      [{ id: 1, author_id: 1 }, { title: "allowlisted title 1" }],
+      [{ id: 2, author_id: 1 }, { title: "allowlisted title 2" }]
+    ])
+
+    assert_model_delta(Post, {
+      1 => { title: "allowlisted title 1" },
+      2 => { title: "allowlisted title 2" }
+    })
+  end
+
   def test_cannot_reference_joined_tables_in_conditions
     # This could be supported in the future
     assert_raises(ActiveRecord::UnknownAttributeError) do
@@ -407,6 +443,77 @@ class UpdateInBulkTest < TestCase
         bad_post => { title: "ig" }
       })
     end
+  end
+
+  def test_with_default_scope
+    deleted_at = Time.now.utc
+    Comment.where(id: 7).update_all(deleted_at:)
+
+    assert_equal 1, SpecialComment.update_in_bulk({
+      6 => { body: "default-scoped row" },
+      7 => { body: "ignored by default scope" }
+    })
+
+    assert_model_delta(Comment, {
+      6 => { body: "default-scoped row", updated_at: :_modified },
+      7 => { deleted_at: :_modified }
+    })
+  end
+
+  def test_with_unscoped_bypasses_default_scope
+    deleted_at = Time.now.utc
+    Comment.where(id: 7).update_all(deleted_at:)
+
+    assert_equal 2, SpecialComment.unscoped.update_in_bulk({
+      6 => { body: "updated by unscoped" },
+      7 => { body: "also updated by unscoped" }
+    })
+
+    assert_model_delta(Comment, {
+      6 => { body: "updated by unscoped", updated_at: :_modified },
+      7 => { body: "also updated by unscoped", updated_at: :_modified, deleted_at: :_modified }
+    })
+  end
+
+  def test_with_named_scope
+    assert_equal 2, Post.by_author(3).update_in_bulk({
+      8 => { title: "named scope bob 1" },
+      10 => { title: "named scope bob 2" },
+      9 => { title: "ignored by named scope" }
+    })
+
+    assert_model_delta(Post, {
+      8 => { title: "named scope bob 1" },
+      10 => { title: "named scope bob 2" }
+    })
+  end
+
+  def test_with_composed_named_scopes
+    assert_equal 1, Post.by_author(2).with_body("hello").update_in_bulk({
+      9 => { title: "ignored by composed named scopes" },
+      11 => { title: "composed named scopes match" }
+    })
+
+    assert_model_delta(Post, {
+      11 => { title: "composed named scopes match" }
+    })
+  end
+
+  def test_with_self_join_aliasing
+    comments = Comment.arel_table
+    parent_comments = comments.alias("parent_comments")
+    join_sources = comments.join(parent_comments).on(parent_comments[:id].eq(comments[:parent_id])).join_sources
+
+    relation = Comment.joins(join_sources).where(parent_comments[:body].eq("Thank you for the welcome"))
+
+    assert_equal 1, relation.update_in_bulk({
+      2 => { body: "updated via self-join alias" },
+      3 => { body: "ignored by self-join alias relation" }
+    })
+
+    assert_model_delta(Comment, {
+      2 => { body: "updated via self-join alias", updated_at: :_modified }
+    })
   end
 
   def test_with_bind_parameter_in_relation_scope

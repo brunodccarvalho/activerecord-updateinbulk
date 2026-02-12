@@ -55,9 +55,21 @@ end
 class Post < ActiveRecord::Base
   alias_attribute :text, :body
   has_many :comments
+  scope :by_author, ->(author_id) { where(author_id:) }
+  scope :with_body, ->(body) { where(body:) }
 end
 
 class SpecialPost < Post; end
+
+class PostWithIgnoredBody < ActiveRecord::Base
+  self.table_name = "posts"
+  self.ignored_columns += ["body"]
+end
+
+class PostWithOnlyColumns < ActiveRecord::Base
+  self.table_name = "posts"
+  self.only_columns = %w[id author_id title]
+end
 
 class User < ActiveRecord::Base
   attribute :preferences, :json
