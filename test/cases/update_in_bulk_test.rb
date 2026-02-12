@@ -251,6 +251,59 @@ class UpdateInBulkTest < TestCase
     })
   end
 
+  def test_optimistic_locking_auto_increments_lock_version
+    assert_query_sql(values: 2, on_width: 1, coalesce: 1) do
+      assert_equal 2, LockingItem.update_in_bulk({
+        2 => { name: "bulk lock two" },
+        3 => { name: "bulk lock three" }
+      }, record_timestamps: false)
+    end
+
+    assert_model_delta(LockingItem, {
+      2 => { name: "bulk lock two", lock_version: 8 },
+      3 => { name: "bulk lock three", lock_version: 1 }
+    })
+  end
+
+  def test_optimistic_locking_with_stale_and_current_conditions
+    assert_query_sql(values: 3, on_width: 2) do
+      assert_equal 1, LockingItem.update_in_bulk([
+        [{ id: 3, lock_version: 4 }, { name: "stale row should miss" }],
+        [{ id: 2, lock_version: 7 }, { name: "current row should hit" }]
+      ])
+    end
+
+    assert_model_delta(LockingItem, {
+      2 => { name: "current row should hit", lock_version: 8, updated_at: :_modified }
+    })
+  end
+
+  def test_optimistic_locking_respects_explicit_lock_version_assign
+    assert_query_sql(values: 3, coalesce: 2) do
+      assert_equal 3, LockingItem.update_in_bulk({
+        1 => { name: "manual lock one", lock_version: 9 },
+        2 => { name: "manual lock two" },
+        3 => { name: "manual lock three", lock_version: 2 }
+      })
+    end
+
+    assert_model_delta(LockingItem, {
+      1 => { name: "manual lock one", lock_version: 9, updated_at: :_modified },
+      2 => { name: "manual lock two", updated_at: :_modified },
+      3 => { name: "manual lock three", lock_version: 2, updated_at: :_modified }
+    })
+  end
+
+  def test_optimistic_locking_keeps_simple_update_path
+    assert_query_sql(values: false, on_width: 0) do
+      assert_equal 1, LockingItem.update_in_bulk({ 1 => { name: "alpha" } })
+    end
+
+    assert_model_delta(LockingItem, {
+      1 => { lock_version: 1, updated_at: :_modified }
+    })
+  end
+
   def test_with_duplicate_keys_same_format
     assert_equal 1, Book.update_in_bulk([
       [1, { name: "Reword" }],

@@ -70,6 +70,13 @@ ActiveRecord::Schema.define do
     t.text :body, null: false
   end
 
+  create_table :locking_items, force: true do |t|
+    t.string :name, null: false
+    t.integer :scope_id
+    t.integer :lock_version, default: 0
+    t.datetime :updated_at
+  end
+
   create_table :pets, primary_key: :pet_id, force: true do |t|
     t.string :name
     t.timestamps

@@ -1,0 +1,20 @@
+one:
+  id: 1
+  name: alpha
+  scope_id: 10
+  lock_version: 0
+  updated_at: 2021-01-01 00:00:00
+
+two:
+  id: 2
+  name: beta
+  scope_id: 10
+  lock_version: 7
+  updated_at: 2021-01-02 00:00:00
+
+three:
+  id: 3
+  name: gamma
+  scope_id: 20
+  lock_version: null
+  updated_at: 2021-01-03 00:00:00

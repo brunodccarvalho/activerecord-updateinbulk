@@ -71,6 +71,8 @@ class PostWithOnlyColumns < ActiveRecord::Base
   self.only_columns = %w[id author_id title]
 end
 
+class LockingItem < ActiveRecord::Base; end
+
 class User < ActiveRecord::Base
   attribute :preferences, :json
   attribute :notifications, :json

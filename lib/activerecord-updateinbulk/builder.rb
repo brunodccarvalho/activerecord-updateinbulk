@@ -138,9 +138,11 @@ module ActiveRecord::UpdateInBulk
       @conditions = conditions
       @assigns = assigns
       @formulas = normalize_formulas(formulas)
+      @auto_locking_column = nil
 
       resolve_attribute_aliases!
       resolve_read_and_write_keys!
+      apply_optimistic_locking!
       verify_read_and_write_keys!
       serialize_values!
       detect_constant_columns! unless simple_update?
@@ -222,7 +224,7 @@ module ActiveRecord::UpdateInBulk
 
       def build_values_table_rows
         bitmask_keys = Set.new
-        non_constant_write_keys = write_keys - constant_assigns.keys
+        non_constant_write_keys = write_keys.reject { |key| constant_assigns.key?(key) }
 
         rows = @conditions.map.with_index do |row_conditions, row_index|
           row_assigns = @assigns[row_index]
@@ -263,6 +265,10 @@ module ActiveRecord::UpdateInBulk
           build_join_assignments(table, values_table, bitmask_keys)
         else
           build_simple_assignments(table)
+        end
+        if @auto_locking_column
+          lock = table[@auto_locking_column]
+          set_assignments << [lock, table.coalesce(lock, 0) + 1]
         end
 
         if timestamp_keys.any?
@@ -357,6 +363,15 @@ module ActiveRecord::UpdateInBulk
           raise ArgumentError, "Unknown formula: #{invalid.first.inspect}"
         end
         normalized
+      end
+
+      def apply_optimistic_locking!
+        return unless model.locking_enabled?
+
+        locking_column = model.locking_column
+        return if write_keys.include?(locking_column)
+
+        @auto_locking_column = locking_column
       end
 
       def resolve_attribute_aliases!
