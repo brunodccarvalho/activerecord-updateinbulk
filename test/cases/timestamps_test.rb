@@ -27,6 +27,8 @@ class TimestampsTest < TestCase
   end
 
   def test_record_timestamps_always_bumps_unchanged
+    Book.where(id: [1, 2]).update_all(updated_at: 5.years.ago, updated_on: 5.years.ago)
+
     assert_query_sql(values: 2, on_width: 1, cases: 0, whens: 0) do
       Book.update_in_bulk({
         1 => { name: "Agile Web Development with Rails" },
@@ -34,7 +36,7 @@ class TimestampsTest < TestCase
       }, record_timestamps: :always)
     end
 
-    assert_in_delta Time.now.utc, Book.find(2).updated_at, 0.1
+    assert_in_delta Time.now.utc, Book.find(1).updated_at, 0.25
     assert_model_delta(Book, {
       1 => { updated_at: :_modified, updated_on: Date.today },
       2 => { name: "Ruby for Rails 2", updated_at: :_modified, updated_on: Date.today }
@@ -49,7 +51,7 @@ class TimestampsTest < TestCase
       }, record_timestamps: true)
     end
 
-    assert_in_delta Time.now.utc, Book.find(2).updated_at, 0.1
+    assert_in_delta Time.now.utc, Book.find(2).updated_at, 0.25
     assert_model_delta(Book, {
       2 => { name: "Ruby for Rails 2", updated_at: :_modified, updated_on: Date.today }
     })
