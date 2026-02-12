@@ -671,6 +671,47 @@ class CastingTest < TestCase
     })
   end
 
+  def test_typecast_normalizes_assigns_and_conditions_with_constant_inlining
+    assert_query_sql(values: 2, on_width: 1) do
+      assert_equal 2, NormalizedUser.update_in_bulk({
+        1 => { email: "  CONTACT@example.com ", settings: "raw one" },
+        2 => { email: "contact@EXAMPLE.com", settings: "raw two" }
+      })
+    end
+
+    assert_query_sql(values: false, on_width: 0) do
+      assert_equal 2, NormalizedUser.update_in_bulk([
+        [{ email: " CONTACT@EXAMPLE.COM " }, { settings: "matched by normalized condition" }]
+      ])
+    end
+
+    assert_model_delta(NormalizedUser, {
+      1 => { email: "contact@example.com", settings: "matched by normalized condition" },
+      2 => { email: "contact@example.com", settings: "matched by normalized condition" }
+    })
+  end
+
+  def test_typecast_serialized_settings_in_assigns_conditions_and_constant_inlining
+    assert_query_sql(values: 3, on_width: 1) do
+      assert_equal 2, SerializedUser.update_in_bulk({
+        1 => { settings: { "theme" => "dark", "alerts" => [1, 2] }, name: "serialized one" },
+        2 => { settings: { "theme" => "light", "alerts" => [3] }, name: "serialized two" }
+      })
+    end
+
+    assert_query_sql(values: 2, on_width: 1) do
+      assert_equal 2, SerializedUser.update_in_bulk([
+        [{ settings: { "theme" => "dark", "alerts" => [1, 2] } }, { settings: { mode: "synced", level: 2 }, name: "serialized match 1" }],
+        [{ settings: { "theme" => "light", "alerts" => [3] } }, { settings: { "mode" => "synced", "level" => 2 }, name: "serialized match 2" }]
+      ])
+    end
+
+    assert_model_delta(SerializedUser, {
+      1 => { settings: { "mode" => "synced", "level" => 2 }, name: "serialized match 1" },
+      2 => { settings: { "mode" => "synced", "level" => 2 }, name: "serialized match 2" }
+    })
+  end
+
   private
     def time_eureka(time)
       time = Time.parse(time)

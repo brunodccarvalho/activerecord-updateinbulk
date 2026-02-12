@@ -10,6 +10,7 @@ david:
 joao:
   id: 2
   name: Joao
+  email: joao@example.com
   <% if ActiveRecord::Base.connection.supports_json? %>
   preferences:
     notifications: true
@@ -25,6 +26,7 @@ joao:
 albert:
   id: 3
   name: Albert
+  email: albert@example.com
   <% if ActiveRecord::Base.connection.supports_json? %>
   notifications: ["One", "Two", "Three"]
   <% else %>

@@ -94,6 +94,16 @@ class User < ActiveRecord::Base
   attribute :notifications, :json
 end
 
+class NormalizedUser < ActiveRecord::Base
+  self.table_name = "users"
+  normalizes :email, with: ->(value) { value.strip.downcase if value.instance_of?(String) }
+end
+
+class SerializedUser < ActiveRecord::Base
+  self.table_name = "users"
+  serialize :settings, coder: JSON
+end
+
 class ProductStock < ActiveRecord::Base; end
 
 class TypeVariety < ActiveRecord::Base
