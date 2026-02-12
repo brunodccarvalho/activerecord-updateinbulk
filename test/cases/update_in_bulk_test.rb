@@ -325,6 +325,45 @@ class UpdateInBulkTest < TestCase
     })
   end
 
+  def test_update_in_bulk_encrypted_assigns_and_deterministic_conditions
+    EncryptedDocument.create!(id: 1011, det_token: "alpha one", rnd_token: "rnd one", payload: "init 1")
+    EncryptedDocument.create!(id: 1012, det_token: "alpha two", rnd_token: "rnd two", payload: "init 2")
+    old_time = Time.utc(2000, 1, 1, 0, 0, 0)
+    EncryptedDocument.where(id: [1011, 1012]).update_all(updated_at: old_time)
+    original = snapshot_model(EncryptedDocument)
+
+    assert_equal 1, EncryptedDocument.update_in_bulk([
+      [{ id: 1011, det_token: "alpha one" }, { det_token: "beta one", payload: "mix hit" }],
+      [{ id: 1012, det_token: "wrong token" }, { det_token: "nope", payload: "mix miss" }]
+    ], record_timestamps: true)
+
+    assert_equal 2, EncryptedDocument.update_in_bulk([
+      [{ det_token: "beta one" }, { payload: "det cond hit 1" }],
+      [{ det_token: "alpha two" }, { det_token: "beta two", payload: "det cond hit 2" }]
+    ], record_timestamps: true)
+
+    actual = snapshot_model(EncryptedDocument)
+    assert_model_snapshot_delta(EncryptedDocument, original, actual, {
+      1011 => { det_token: "beta one", payload: "det cond hit 1", updated_at: :_modified },
+      1012 => { det_token: "beta two", payload: "det cond hit 2", updated_at: :_modified }
+    })
+
+    encrypted_1011 = ActiveRecord::Base.connection.select_value("SELECT det_token FROM encrypted_documents WHERE id = 1011")
+    encrypted_1012 = ActiveRecord::Base.connection.select_value("SELECT det_token FROM encrypted_documents WHERE id = 1012")
+    assert_not_equal "beta one", encrypted_1011
+    assert_not_equal "beta two", encrypted_1012
+  end
+
+  def test_update_in_bulk_non_deterministic_encrypted_conditions_do_not_match
+    EncryptedDocument.create!(id: 1031, det_token: "det", rnd_token: "rnd condition", payload: "init")
+
+    assert_equal 0, EncryptedDocument.update_in_bulk([
+      [{ rnd_token: "rnd condition" }, { payload: "should not match" }]
+    ])
+
+    assert_equal "init", EncryptedDocument.find(1031).payload
+  end
+
   def test_with_duplicate_keys_same_format
     assert_equal 1, Book.update_in_bulk([
       [1, { name: "Reword" }],

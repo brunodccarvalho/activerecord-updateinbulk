@@ -1,5 +1,11 @@
 # frozen_string_literal: true
 
+ActiveRecord::Encryption.configure(
+  primary_key: "test-primary-key-for-encryption",
+  deterministic_key: "test-deterministic-key-encryption",
+  key_derivation_salt: "test-key-derivation-salt-encryption"
+)
+
 class Author < ActiveRecord::Base
   has_many :books
 end
@@ -77,6 +83,11 @@ class PostWithReadonlyTitle < ActiveRecord::Base
 end
 
 class LockingItem < ActiveRecord::Base; end
+
+class EncryptedDocument < ActiveRecord::Base
+  encrypts :det_token, deterministic: true
+  encrypts :rnd_token
+end
 
 class User < ActiveRecord::Base
   attribute :preferences, :json

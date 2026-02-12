@@ -77,6 +77,13 @@ ActiveRecord::Schema.define do
     t.datetime :updated_at
   end
 
+  create_table :encrypted_documents, force: true do |t|
+    t.string :det_token
+    t.string :rnd_token
+    t.string :payload
+    t.datetime :updated_at
+  end
+
   create_table :pets, primary_key: :pet_id, force: true do |t|
     t.string :name
     t.timestamps
