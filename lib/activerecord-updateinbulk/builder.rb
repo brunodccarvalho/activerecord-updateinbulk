@@ -294,7 +294,8 @@ module ActiveRecord::UpdateInBulk
           if constant_assigns.key?(key)
             rhs = Arel::Nodes::Quoted.new(constant_assigns[key])
           else
-            rhs = values_table[column]
+            val = values_table[column]
+            rhs = val
             column += 1
             rhs = self.class.apply_formula(formula, lhs, rhs, model) if formula
           end
@@ -302,7 +303,11 @@ module ActiveRecord::UpdateInBulk
           if function = bitmask_functions[key]
             rhs = Arel::Nodes::Case.new(function).when("1").then(rhs).else(lhs)
           elsif optional_keys.include?(key)
-            rhs = table.coalesce(rhs, lhs)
+            if formula
+              rhs = Arel::Nodes::Case.new.when(val.eq(nil)).then(lhs).else(rhs)
+            else
+              rhs = table.coalesce(rhs, lhs)
+            end
           end
           [lhs, rhs]
         end

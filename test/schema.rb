@@ -14,6 +14,7 @@ ActiveRecord::Schema.define do
 
   create_table :authors, force: true do |t|
     t.string :name, null: false
+    t.string :preamble
   end
 
   create_table :books, id: :integer, force: true do |t|

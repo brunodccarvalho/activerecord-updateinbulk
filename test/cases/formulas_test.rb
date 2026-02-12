@@ -164,19 +164,48 @@ class FormulasTest < TestCase
     end
   end
 
-  def test_custom_formula_proc_with_optional_columns
-    concat_proc = lambda do |lhs, rhs|
-      Arel::Nodes::Concat.new(lhs, rhs)
+  def test_custom_formula_proc_with_optional_columns_only_where_assigned
+    # Tricky case: we must ensure the formula is not computed when the value is not specified.
+    # Simply doing `lhs = COALESCE(formula(lhs,rhs),rhs)` is wrong in this case when the formula
+    # does not necessarily evaluate to NULL when rhs is NULL.
+    fallback_proc = lambda do |_lhs, rhs|
+      Arel::Nodes::NamedFunction.new("COALESCE", [Author.arel_table[:preamble], rhs])
     end
 
-    Book.update_in_bulk({
-      1 => { name: " X" },
-      2 => { pages: 7 }
-    }, formulas: { name: concat_proc })
+    assert_query_sql(values: 3, coalesce: 1 + 1, cases: 1, whens: 1) do
+      Book.joins(:author).update_in_bulk({
+        1 => { description: "not updated since i dont have an author" },
+        2 => { description: "author has no preamble, uses this value instead" },
+        3 => { description: "author has preamble, uses that" },
+        4 => { name: "Thoughtleadering" }
+      }, formulas: { description: fallback_proc })
+    end
 
     assert_model_delta(Book, {
-      1 => { name: "Agile Web Development with Rails X" },
-      2 => { pages: 7 }
+      2 => { description: "author has no preamble, uses this value instead" },
+      3 => { description: "Mary's preamble" }
+    })
+  end
+
+  def test_custom_formula_proc_with_optional_columns_only_where_assigned_with_null
+    fallback_proc = lambda do |_lhs, rhs|
+      Arel::Nodes::NamedFunction.new("COALESCE", [Author.arel_table[:preamble], rhs])
+    end
+
+    assert_query_sql(values: 4, coalesce: 1 + 1, cases: 1, whens: 1) do
+      Book.joins(:author).update_in_bulk({
+        1 => { description: "not updated since i dont have an author" },
+        2 => { description: "author has no preamble, uses this value instead" },
+        3 => { description: "author has preamble, uses that" },
+        4 => { name: "Thoughtleadering" },
+        5 => { description: nil } # formula still applies, uses author preamble
+      }, formulas: { description: fallback_proc })
+    end
+
+    assert_model_delta(Book, {
+      2 => { description: "author has no preamble, uses this value instead" },
+      3 => { description: "Mary's preamble" },
+      5 => { description: "Bob's preamble" }
     })
   end
 

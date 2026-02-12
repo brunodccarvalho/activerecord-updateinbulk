@@ -5,10 +5,12 @@ one:
 two:
   id: 2
   name: "Mary"
+  preamble: "Mary's preamble"
 
 three:
   id: 3
   name: "Bob"
+  preamble: "Bob's preamble"
 
 jimmy:
   id: 123

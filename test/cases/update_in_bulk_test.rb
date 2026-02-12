@@ -504,9 +504,9 @@ class UpdateInBulkTest < TestCase
     author.books.load
 
     assert_changes "author.books.loaded?", from: true, to: false do
-      author.books.update_in_bulk({ 1 => { name: "updated" } })
+      author.books.update_in_bulk({ 2 => { name: "updated" } })
     end
-    assert_model_delta(Book, { 1 => { name: "updated" } })
+    assert_model_delta(Book, { 2 => { name: "updated" } })
   end
 
   def test_does_not_reset_relation_if_updates_is_empty
