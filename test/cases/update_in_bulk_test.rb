@@ -213,6 +213,27 @@ class UpdateInBulkTest < TestCase
     })
   end
 
+  def test_readonly_assigns_are_updated_like_update_all
+    original = ActiveRecord.raise_on_assign_to_attr_readonly
+    ActiveRecord.raise_on_assign_to_attr_readonly = true
+
+    assert_equal 2, PostWithReadonlyTitle.update_in_bulk({
+      1 => { title: "readonly updated 1", body: "mixed 1" },
+      2 => { title: "readonly updated 2", body: "mixed 2" }
+    })
+    assert_model_delta(Post, {
+      1 => { title: "readonly updated 1", body: "mixed 1" },
+      2 => { title: "readonly updated 2", body: "mixed 2" }
+    })
+
+    assert_equal 1, PostWithReadonlyTitle.update_in_bulk([
+      [{ title: "other post by bob" }, { title: "matched by readonly condition" }]
+    ])
+    assert_equal "matched by readonly condition", Post.find(10).title
+  ensure
+    ActiveRecord.raise_on_assign_to_attr_readonly = original
+  end
+
   def test_cannot_reference_joined_tables_in_conditions
     # This could be supported in the future
     assert_raises(ActiveRecord::UnknownAttributeError) do

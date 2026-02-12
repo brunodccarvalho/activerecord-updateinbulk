@@ -71,6 +71,11 @@ class PostWithOnlyColumns < ActiveRecord::Base
   self.only_columns = %w[id author_id title]
 end
 
+class PostWithReadonlyTitle < ActiveRecord::Base
+  self.table_name = "posts"
+  attr_readonly :title
+end
+
 class LockingItem < ActiveRecord::Base; end
 
 class User < ActiveRecord::Base
