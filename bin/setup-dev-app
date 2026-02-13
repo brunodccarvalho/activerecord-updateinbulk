@@ -1,39 +1,25 @@
 #!/usr/bin/env bash
 # frozen_string_literal: true
 #
-# Sets up a minimal Rails app in ./app for railtie integration testing.
+# Sets up a minimal Rails app in ./app for local railtie integration testing.
 # Database schema, models, and fixtures are symlinked from test/.
 #
 set -e
-
-FORCE=false
-for arg in "$@"; do
-  case "$arg" in
-    --force) FORCE=true ;;
-  esac
-done
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 APP="$ROOT/app"
 
 if [ -d "$APP" ]; then
-  if [ "$FORCE" = true ]; then
-    :
-  elif [ -t 0 ]; then
-    read -rp "==> $APP already exists. Remove and recreate? [y/N] " answer
-    if [ "$answer" != "y" ] && [ "$answer" != "Y" ]; then
-      echo "Aborted."
-      exit 1
-    fi
-  else
-    echo "Error: $APP already exists. Run interactively to confirm removal." >&2
-    exit 1
-  fi
-  rm -rf "$APP"
+  echo "Error: $APP already exists. Remove it before running this script." >&2
+  exit 1
 fi
 
 echo "==> Generating minimal Rails app..."
 cd "$ROOT"
+if ! command -v rails >/dev/null 2>&1; then
+  echo "==> Installing rails..."
+  gem install rails --no-document
+fi
 rails new app --minimal --skip-git --database=sqlite3
 
 echo "==> Adding gem to Gemfile..."

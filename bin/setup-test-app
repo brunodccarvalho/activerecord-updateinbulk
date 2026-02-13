@@ -1,0 +1,113 @@
+#!/usr/bin/env bash
+# frozen_string_literal: true
+#
+# Sets up a minimal Rails app in ./app for railtie smoke testing.
+# This app is self-contained (no symlinks) and suitable for CI.
+#
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+APP="$ROOT/app"
+
+if [ -d "$APP" ]; then
+  echo "Error: $APP already exists. Remove it before running this script." >&2
+  exit 1
+fi
+
+echo "==> Generating minimal Rails app..."
+cd "$ROOT"
+if ! command -v rails >/dev/null 2>&1; then
+  echo "==> Installing rails..."
+  gem install rails --no-document
+fi
+rails new app --minimal --skip-git --database=sqlite3
+
+echo "==> Adding gem to Gemfile..."
+cat >> "$APP/Gemfile" <<'RUBY'
+# Gem under test
+gem "activerecord-updateinbulk", path: ".."
+RUBY
+
+echo "==> Configuring railtie options in initializer..."
+cat > "$APP/config/initializers/update_in_bulk.rb" <<'RUBY'
+# frozen_string_literal: true
+
+Rails.application.config.active_record_update_in_bulk.values_table_alias = "rt_vals"
+Rails.application.config.active_record_update_in_bulk.ignore_scope_order = false
+RUBY
+
+echo "==> Creating railtie verification runner..."
+mkdir -p "$APP/script"
+cat > "$APP/script/verify_update_in_bulk_railtie.rb" <<'RUBY'
+# frozen_string_literal: true
+
+unless defined?(ActiveRecord::UpdateInBulk::Builder)
+  abort("Railtie test failed: ActiveRecord::UpdateInBulk::Builder not loaded")
+end
+
+unless ActiveRecord::Relation.instance_methods(false).include?(:update_in_bulk) || ActiveRecord::Relation.instance_methods.include?(:update_in_bulk)
+  abort("Railtie test failed: ActiveRecord::Relation#update_in_bulk not installed")
+end
+
+builder = ActiveRecord::UpdateInBulk::Builder
+unless builder.values_table_name == "rt_vals"
+  abort("Railtie test failed: expected values_table_name='rt_vals', got #{builder.values_table_name.inspect}")
+end
+unless builder.ignore_scope_order == false
+  abort("Railtie test failed: expected ignore_scope_order=false, got #{builder.ignore_scope_order.inspect}")
+end
+
+ActiveRecord::Schema.define do
+  suppress_messages do
+    create_table :railtie_widgets, force: true do |t|
+      t.string :name
+    end
+  end
+end
+
+class RailtieWidget < ApplicationRecord
+  self.table_name = "railtie_widgets"
+end
+
+RailtieWidget.insert_all([
+  { id: 1, name: "one" },
+  { id: 2, name: "two" }
+])
+
+update_sql = nil
+subscriber = lambda do |_name, _start, _finish, _id, payload|
+  sql = payload[:sql]
+  update_sql = sql if sql.start_with?("UPDATE")
+end
+
+ActiveSupport::Notifications.subscribed(subscriber, "sql.active_record") do
+  affected = RailtieWidget.update_in_bulk({
+    1 => { name: "uno" },
+    2 => { name: "dos" }
+  })
+  abort("Railtie test failed: expected 2 rows updated, got #{affected}") unless affected == 2
+end
+
+unless update_sql&.include?("rt_vals")
+  abort("Railtie test failed: expected UPDATE SQL to include 'rt_vals', got: #{update_sql.inspect}")
+end
+
+begin
+  RailtieWidget.order(:id).update_in_bulk({ 1 => { name: "ordered" } })
+  abort("Railtie test failed: expected ordered scope to raise with ignore_scope_order=false")
+rescue NotImplementedError
+  # expected
+end
+
+abort("Railtie test failed: row 1 not updated") unless RailtieWidget.find(1).name == "uno"
+abort("Railtie test failed: row 2 not updated") unless RailtieWidget.find(2).name == "dos"
+
+puts "Railtie smoke test OK"
+RUBY
+
+echo "==> Running bundle install..."
+cd "$APP"
+bundle install
+
+echo "==> Running railtie smoke test..."
+bin/rails runner script/verify_update_in_bulk_railtie.rb
