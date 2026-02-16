@@ -209,6 +209,35 @@ class FormulasTest < TestCase
     })
   end
 
+  def test_formula_is_not_even_evaluated_for_unassigned_optional_rows
+    proc = json_note_or_rhs_proc
+
+    Book.update_all(description: "{broken-json")
+    Book.where(id: 2).update_all(description: "{}")
+    Book.where(id: 3).update_all(description: '{"note":"too narrow"}')
+    original = snapshot_model(Book)
+
+    Book.update_in_bulk({
+      1 => { name: "Agile Safe" },
+      2 => { description: "safe fallback 2" },
+      3 => { description: "safe fallback 3" }
+    }, formulas: { description: proc })
+
+    assert_model_snapshot_delta(Book, original, snapshot_model(Book), {
+      1 => { name: "Agile Safe" },
+      2 => { description: "safe fallback 2" },
+      3 => { description: "too narrow" }
+    })
+
+    assert_violation(ActiveRecord::StatementInvalid) do
+      Book.update_in_bulk({
+        1 => { description: "will fail" },
+        2 => { name: "Agile Safe 2" },
+        3 => { description: "safe fallback 3" }
+      }, formulas: { description: proc })
+    end
+  end
+
   def test_custom_formula_proc_json_append
     skip unless json_array_append_proc
 
@@ -307,6 +336,28 @@ class FormulasTest < TestCase
           lhs_sql = arel_sql(lhs, model.connection)
           rhs_sql = arel_sql(rhs, model.connection)
           Arel.sql("JSON_ARRAY_INSERT(COALESCE(#{lhs_sql}, JSON_ARRAY()), '$[0]', JSON_EXTRACT(#{rhs_sql}, '$'))")
+        end
+      end
+    end
+
+    def json_note_or_rhs_proc
+      @json_note_or_rhs_proc ||= if postgres?
+        lambda do |lhs, rhs, model|
+          lhs_sql = arel_sql(lhs, model.connection)
+          rhs_sql = arel_sql(rhs, model.connection)
+          Arel.sql("COALESCE((#{lhs_sql}::jsonb ->> 'note'), #{rhs_sql})")
+        end
+      elsif mysql?
+        lambda do |lhs, rhs, model|
+          lhs_sql = arel_sql(lhs, model.connection)
+          rhs_sql = arel_sql(rhs, model.connection)
+          Arel.sql("COALESCE(JSON_UNQUOTE(JSON_EXTRACT(#{lhs_sql}, '$.note')), #{rhs_sql})")
+        end
+      elsif sqlite?
+        lambda do |lhs, rhs, model|
+          lhs_sql = arel_sql(lhs, model.connection)
+          rhs_sql = arel_sql(rhs, model.connection)
+          Arel.sql("COALESCE(json_extract(#{lhs_sql}, '$.note'), #{rhs_sql})")
         end
       end
     end
