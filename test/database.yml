@@ -23,4 +23,8 @@ trilogy:
   <<: *mysql2
   adapter: trilogy
   prepared_statements: false
+<% if ENV.key?("MYSQL_HOST") %>
   ssl_mode: required
+<% else %>
+  socket: <%= ENV.fetch("MYSQL_SOCKET", "/run/mysqld/mysqld.sock") %>
+<% end %>

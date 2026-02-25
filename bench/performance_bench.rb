@@ -4,6 +4,7 @@ require_relative "bench_helper"
 
 adapter = BenchHelper.setup_database!
 puts "Adapter: #{adapter}"
+puts format("Profile time: %.1fs, warmup: %.1fs", BenchHelper::BENCH_TIME, BenchHelper::BENCH_WARMUP)
 
 ROW_COUNTS = [10, 100, 1000, 5000].freeze
 TABLE_FACTOR = 3
@@ -16,14 +17,10 @@ ROW_COUNTS.each do |n|
   updates = ids.each_with_object({}) { |id, h| h[id] = { name: "Updated #{id}" } }
 
   BenchHelper.subsection("#{n} rows")
-  Benchmark.ips(quiet: true) do |x|
-    x.suite = QuietStreamReport.new
-    x.time = 5
-    x.warmup = 2
-    x.report("update_in_bulk(#{n})") do
-      BenchHelper.in_transaction { Book.update_in_bulk(updates) }
-    end
+  result = BenchHelper.run_profile("update_in_bulk(#{n})") do
+    BenchHelper.in_transaction { Book.update_in_bulk(updates) }
   end
+  BenchHelper.report_result(result)
 end
 
 BenchHelper.section("Multi-column update")
@@ -36,14 +33,10 @@ ROW_COUNTS.each do |n|
   end
 
   BenchHelper.subsection("#{n} rows")
-  Benchmark.ips(quiet: true) do |x|
-    x.suite = QuietStreamReport.new
-    x.time = 5
-    x.warmup = 2
-    x.report("update_in_bulk(#{n})") do
-      BenchHelper.in_transaction { Book.update_in_bulk(updates) }
-    end
+  result = BenchHelper.run_profile("update_in_bulk(#{n})") do
+    BenchHelper.in_transaction { Book.update_in_bulk(updates) }
   end
+  BenchHelper.report_result(result)
 end
 
 BenchHelper.section("Optional keys update")
@@ -62,12 +55,8 @@ ROW_COUNTS.each do |n|
   end
 
   BenchHelper.subsection("#{n} rows")
-  Benchmark.ips(quiet: true) do |x|
-    x.suite = QuietStreamReport.new
-    x.time = 5
-    x.warmup = 2
-    x.report("update_in_bulk(#{n})") do
-      BenchHelper.in_transaction { Book.update_in_bulk(updates) }
-    end
+  result = BenchHelper.run_profile("update_in_bulk(#{n})") do
+    BenchHelper.in_transaction { Book.update_in_bulk(updates) }
   end
+  BenchHelper.report_result(result)
 end

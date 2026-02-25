@@ -41,7 +41,7 @@ case "$DATABASE" in
   mysql|mysql2|mariadb)
     export ARADAPTER=mysql2
     ;;
-  trilogy|trilogy-mysqltrilogy-mariadb)
+  trilogy|trilogy-mysql|trilogy-mariadb)
     export ARADAPTER=trilogy
     ;;
   postgres|postgresql)

@@ -24,6 +24,6 @@ Minitest::SummaryReporter.prepend(Module.new {
     io.sync = old_sync
 
     aggregated_results io
-    io.puts "#{summary}, SEED=#{options[:seed]}"
+    io.puts "#{summary}, SEED=#{options[:seed]}, adapter=#{ActiveRecord::Base.connection.adapter_name}"
   end
 })
