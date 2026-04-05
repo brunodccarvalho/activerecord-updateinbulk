@@ -1,0 +1,8 @@
+--quiet
+lib/activerecord-updateinbulk/relation.rb
+lib/activerecord-updateinbulk/adapters/abstract_adapter.rb
+lib/activerecord-updateinbulk/arel/nodes/values_table.rb
+lib/activerecord-updateinbulk/railtie.rb
+lib/activerecord-updateinbulk/version.rb
+-
+README.md

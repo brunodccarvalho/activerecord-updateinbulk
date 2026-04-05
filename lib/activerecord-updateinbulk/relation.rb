@@ -3,14 +3,14 @@
 module ActiveRecord::UpdateInBulk
   module Relation
     # Updates multiple groups of records in the current relation using a single
-    # SQL UPDATE statement. This does not instantiate models and does not
+    # SQL +UPDATE+ statement. This does not instantiate models and does not
     # trigger Active Record callbacks or validations. However, values passed
     # through still use Active Record's normal type casting and serialization.
     # Returns the number of rows affected.
     #
-    # Three equivalent input formats are supported:
+    # Three equivalent input formats are supported for convenience:
     #
-    # *Indexed format* — a hash mapping primary keys to attribute updates:
+    # <b>Indexed format</b> — a hash mapping primary keys to attribute updates:
     #
     #   Book.update_in_bulk({
     #     1 => { title: "Agile", price: 10.0 },
@@ -24,7 +24,7 @@ module ActiveRecord::UpdateInBulk
     #     ["AA100", "12B"] => { passenger: "Bob" }
     #   })
     #
-    # *Paired format* — an array of <tt>[conditions, assigns]</tt> pairs.
+    # <b>Paired format</b> — an array of <tt>[conditions, assigns]</tt> pairs.
     # Conditions do not need to be primary keys; they may reference any columns in
     # the target table. All pairs must specify the same set of condition
     # columns:
@@ -34,7 +34,7 @@ module ActiveRecord::UpdateInBulk
     #     [{ department: "Engineering" }, { bonus: 500 }]
     #   ])
     #
-    # *Separated format* — parallel arrays of conditions and assigns:
+    # <b>Separated format</b> — parallel arrays of conditions and assigns:
     #
     #   Employee.update_in_bulk(
     #     [1, 2, { id: 3 }],
@@ -90,6 +90,12 @@ module ActiveRecord::UpdateInBulk
     #     2 => { department: "Sales" }
     #   })
     #
+    # ==== Restrictions
+    #
+    # This method does not support relations with <tt>offset</tt>, <tt>limit</tt>,
+    # <tt>group</tt>, or <tt>having</tt> clauses. An <tt>order</tt> clause is supported
+    # by default <b>by being stripped</b> to keep the method usable on ordered associations.
+    #
     def update_in_bulk(updates, values = nil, record_timestamps: nil, formulas: nil)
       unless limit_value.nil? && offset_value.nil? && group_values.empty? && having_clause.empty?
         raise NotImplementedError, "No support to update relations with offset, limit, group, or having clauses"
@@ -137,3 +143,8 @@ module ActiveRecord::UpdateInBulk
 end
 
 ActiveRecord::Relation.prepend(ActiveRecord::UpdateInBulk::Relation)
+
+# @!parse
+#   class ActiveRecord::Relation
+#     include ActiveRecord::UpdateInBulk::Relation
+#   end

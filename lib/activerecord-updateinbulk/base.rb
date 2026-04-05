@@ -19,15 +19,15 @@ module ActiveRecord
       require_adapter connection_pool.db_config.adapter
     end
 
-    def self.register_formula(name, &formula)
+    def self.register_formula(name, &formula) # :nodoc:
       Builder.register_formula(name, &formula)
     end
 
-    def self.unregister_formula(name)
+    def self.unregister_formula(name) # :nodoc:
       Builder.unregister_formula(name)
     end
 
-    def self.registered_formula?(name)
+    def self.registered_formula?(name) # :nodoc:
       Builder.registered_formula?(name)
     end
   end
@@ -43,7 +43,7 @@ require "activerecord-updateinbulk/querying"
 require "activerecord-updateinbulk/adapters/abstract_adapter"
 
 module ActiveRecord::UpdateInBulk
-  module ConnectionHandler # :nodoc:
+  module ConnectionHandler # :nodoc: all
     def establish_connection(*args, **kwargs, &block) # :nodoc:
       pool = super(*args, **kwargs, &block)
       ActiveRecord::UpdateInBulk.load_from_connection_pool pool

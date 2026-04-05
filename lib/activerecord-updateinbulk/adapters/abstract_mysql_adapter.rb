@@ -3,7 +3,7 @@
 require "active_record/connection_adapters/abstract_mysql_adapter"
 
 module ActiveRecord::UpdateInBulk
-  module AbstractMysqlAdapter
+  module AbstractMysqlAdapter # :nodoc: all
     def supports_values_tables?
       mariadb? ? database_version >= "10.3.3" : database_version >= "8.0.19"
     end

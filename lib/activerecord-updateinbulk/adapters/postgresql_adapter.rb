@@ -3,7 +3,7 @@
 require "active_record/connection_adapters/postgresql_adapter"
 
 module ActiveRecord::UpdateInBulk
-  module PostgreSQLAdapter
+  module PostgreSQLAdapter # :nodoc: all
     SAFE_TYPES_FOR_VALUES_TABLE = [:integer, :string, :text, :boolean].freeze
 
 

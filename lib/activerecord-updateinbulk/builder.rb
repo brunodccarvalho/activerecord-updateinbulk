@@ -3,7 +3,7 @@
 require "active_support/core_ext/enumerable"
 
 module ActiveRecord::UpdateInBulk
-  class Builder # :nodoc:
+  class Builder # :nodoc: all
     SAFE_COMPARISON_TYPES = [:boolean, :string, :text, :integer, :float, :decimal].freeze
 
     class << self

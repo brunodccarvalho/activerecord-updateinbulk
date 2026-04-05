@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 module ActiveRecord::UpdateInBulk
-  module Querying # :nodoc:
+  module Querying # :nodoc: all
     def update_in_bulk(...) # :nodoc:
       all.update_in_bulk(...)
     end

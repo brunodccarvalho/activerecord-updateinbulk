@@ -1,10 +1,13 @@
 # frozen_string_literal: true
 
 module Arel::Nodes
-  # Represents a SQL VALUES table constructor as an Arel node.
-  # Mirrors Arel::Table behavior by requiring a name at construction time.
-  # Column names are also required because adapter defaults vary; obtain
-  # defaults through <tt>connection.values_table_default_column_names(width)</tt>.
+  # Represents the +VALUES+ table constructor as an Arel node.
+  # Mirrors +Arel::Table+ behavior by requiring a name at construction time.
+  # Column names are also required because adapter defaults vary; prefer using the
+  # default names from <tt>connection.values_table_default_column_names(width)</tt>
+  # to keep the generated query simple.
+  #
+  # This is a private class that may be used by typecasting logic in custom adapters.
   #
   class ValuesTable < Arel::Nodes::Node
     attr_reader :name, :width, :rows, :columns
@@ -35,7 +38,9 @@ module Arel::Nodes
       Arel::Nodes::TableAlias.new(grouping(self), table)
     end
 
-    delegate :to_cte, to: :alias
+    def to_cte
+      self.alias.to_cte
+    end
 
     def hash
       [@name, @rows, @columns].hash

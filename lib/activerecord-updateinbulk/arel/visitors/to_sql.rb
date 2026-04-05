@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 module ActiveRecord::UpdateInBulk
-  module ToSql
+  module ToSql # :nodoc: all
     def visit_Arel_Nodes_ValuesTable(o, collector)
       row_prefix = @connection.values_table_row_prefix
 

@@ -3,7 +3,7 @@
 require "active_record/connection_adapters/sqlite3_adapter"
 
 module ActiveRecord::UpdateInBulk
-  module SQLite3Adapter
+  module SQLite3Adapter # :nodoc: all
   end
 end
 

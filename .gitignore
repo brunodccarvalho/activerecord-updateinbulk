@@ -17,5 +17,9 @@ vendor/bundle/
 .bundle/
 Gemfile.lock
 
+# YARD
+doc/
+.yardoc/
+
 # Agents
 CLAUDE.md

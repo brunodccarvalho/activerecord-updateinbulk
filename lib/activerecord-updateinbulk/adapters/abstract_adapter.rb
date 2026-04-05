@@ -21,7 +21,7 @@ module ActiveRecord::UpdateInBulk
     end
 
     # Whether VALUES table serialization must always include explicit column
-    # aliases (because defaults are missing or not statically known).
+    # aliases because there are no default names. This is a mariadb quirk.
     def values_table_requires_aliasing?
       false
     end
@@ -44,10 +44,15 @@ module ActiveRecord::UpdateInBulk
     # possibly modified in place.
     #
     # The default implementation does no explicit type casting.
-    def typecast_values_table(values_table, _columns)
+    def typecast_values_table(values_table, columns)
       values_table
     end
   end
 end
 
 ActiveRecord::ConnectionAdapters::AbstractAdapter.include(ActiveRecord::UpdateInBulk::AbstractAdapter)
+
+# @!parse
+#   class ActiveRecord::ConnectionAdapters::AbstractAdapter
+#     include ActiveRecord::UpdateInBulk::AbstractAdapter
+#   end

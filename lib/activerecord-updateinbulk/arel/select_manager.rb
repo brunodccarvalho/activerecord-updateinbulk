@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 module ActiveRecord::UpdateInBulk
-  module SelectManager # :nodoc:
+  module SelectManager # :nodoc: all
     def alias(name) # :nodoc:
       Arel::Nodes::TableAlias.new(self, name)
     end

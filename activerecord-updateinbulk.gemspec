@@ -18,12 +18,9 @@ Gem::Specification.new do |spec|
     "bug_tracker_uri"   => spec.homepage + "/issues",
     "homepage_uri"      => spec.homepage,
     "source_code_uri"   => spec.homepage
-
   }
-  spec.metadata["homepage_uri"] = spec.homepage
-  spec.metadata["source_code_uri"] = spec.homepage
 
-  spec.files = Dir["lib/**/*.rb", "LICENSE", "README.md"]
+  spec.files = Dir["lib/**/*.rb", "LICENSE", "README.md", ".yardopts"]
   spec.require_paths = ["lib"]
 
   spec.add_runtime_dependency "activerecord", ">= 8.0"
