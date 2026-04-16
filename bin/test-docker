@@ -25,7 +25,7 @@ case "$DATABASE" in
     ;;
   *)
     echo "Unknown database target: $DATABASE"
-    echo "Supported targets: mysql, mariadb, postgresql, sqlite3, trilogy-{mysql,mariadb}"
+    echo "Supported targets: all, mysql, mariadb, postgresql, sqlite3, trilogy-{mysql,mariadb}"
     exit 1
     ;;
 esac

@@ -581,7 +581,7 @@ class CastingTest < TestCase
     assert_query_sql(values: 4) do
       TypeVariety.update_in_bulk({
         1 => { col_date: "2024-12-25 23:59:59",                     col_datetime: Time.new(2024, 12, 25, 10, 30, 0, "+02:00"),   col_time: Time.new(2024, 12, 25, 14, 45, 30, "+02:00") },
-        2 => { col_date: Date.new(2024, 7, 4),                      col_datetime: Time.utc(2024, 7, 4, 20, 0, 25),               col_time: Time.parse("08:15:00") },
+        2 => { col_date: Date.new(2024, 7, 4),                      col_datetime: Time.utc(2024, 7, 4, 20, 0, 25),               col_time: Time.parse("08:15:00 UTC") },
         3 => { col_date: Time.new(2024, 11, 3, 1, 45, 0, "+06:00"), col_datetime: DateTime.new(2024, 11, 5, 7, 45, 0, "+02:00"), col_time: "09:45" }
       })
     end
@@ -620,7 +620,7 @@ class CastingTest < TestCase
     assert_query_sql(values: 2) do
       TypeVariety.update_in_bulk([
         [{ col_time: Time.new(2025, 1, 15, 11, 0, 0, "+02:00") }, { col_varchar: "time 1" }],
-        [{ col_time: Time.parse("18:30:00") }, { col_varchar: "time 2" }],
+        [{ col_time: Time.parse("18:30:00 UTC") }, { col_varchar: "time 2" }],
         [{ col_time: "07:45:00" }, { col_varchar: "time 3" }],
         [{ col_time: "04:30:00" }, { col_varchar: "time 4" }]
       ])
