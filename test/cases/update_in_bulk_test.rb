@@ -4,6 +4,14 @@ require "test_helper"
 require "models"
 
 class UpdateInBulkTest < TestCase
+  class DuplicateRejectingHash < Hash
+    def []=(key, value)
+      raise ArgumentError, "duplicate key: #{key.inspect}" if key?(key)
+
+      super
+    end
+  end
+
   fixtures :all
 
   before_suite do
@@ -362,6 +370,31 @@ class UpdateInBulkTest < TestCase
     ])
 
     assert_equal "init", EncryptedDocument.find(1031).payload
+  end
+
+  def test_with_hash_with_indifferent_access
+    assert_equal 2, Book.update_in_bulk([
+      [{ "id" => 1, :status => :published }.with_indifferent_access, { "title" => "Indifferent 1" }.with_indifferent_access],
+      [{ id: 2, "status" => :proposed }.with_indifferent_access, { name: "Indifferent 2" }.with_indifferent_access]
+    ])
+
+    assert_model_delta(Book, {
+      1 => { name: "Indifferent 1" },
+      2 => { name: "Indifferent 2" }
+    })
+  end
+
+  def test_with_duplicate_rejecting_hash
+    updates = DuplicateRejectingHash.new
+    updates[1] = DuplicateRejectingHash["name" => "Strict 1"]
+    updates[2] = DuplicateRejectingHash[name: "Strict 2"]
+
+    assert_equal 2, Book.update_in_bulk(updates)
+
+    assert_model_delta(Book, {
+      1 => { name: "Strict 1" },
+      2 => { name: "Strict 2" }
+    })
   end
 
   def test_with_duplicate_keys_same_format
