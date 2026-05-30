@@ -8,7 +8,7 @@ on:
 
 jobs:
   lint:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     steps:
       - uses: actions/checkout@v4
       - uses: ruby/setup-ruby@v1
@@ -18,7 +18,7 @@ jobs:
       - run: bundle exec rubocop
 
   railtie:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     steps:
       - uses: actions/checkout@v4
       - uses: ruby/setup-ruby@v1
@@ -28,21 +28,30 @@ jobs:
       - run: bin/setup-test-app
 
   sqlite3:
-    runs-on: ubuntu-latest
+    name: sqlite3 (ruby ${{ matrix.ruby }})
+    runs-on: ubuntu-slim
+    strategy:
+      fail-fast: false
+      matrix:
+        ruby: ["3.4", "4.0"]
     steps:
       - uses: actions/checkout@v4
       - uses: ruby/setup-ruby@v1
         with:
-          ruby-version: "3.4"
+          ruby-version: ${{ matrix.ruby }}
           bundler-cache: true
       - run: bundle exec rake test:sqlite3
 
   postgresql:
-    name: postgresql:${{ matrix.postgres }}
+    name: postgresql:${{ matrix.postgres }} (ruby ${{ matrix.ruby }})
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        postgres: ["15", "latest"]
+        include:
+          - { postgres: "15", ruby: "3.4" }
+          - { postgres: "latest", ruby: "3.4" }
+          - { postgres: "latest", ruby: "4.0" }
     services:
       postgres:
         image: postgres:${{ matrix.postgres }}
@@ -65,24 +74,22 @@ jobs:
       - uses: actions/checkout@v4
       - uses: ruby/setup-ruby@v1
         with:
-          ruby-version: "3.4"
+          ruby-version: ${{ matrix.ruby }}
           bundler-cache: true
       - run: bundle exec rake test:postgresql
 
   mysql:
-    name: mysql:${{ matrix.mysql }}${{ matrix.mysql_prepared_statements == '0' && ' (no binds)' || '' }}
+    name: mysql:${{ matrix.mysql }}${{ matrix.mysql_prepared_statements == '0' && ' (no binds)' || '' }} (ruby ${{ matrix.ruby }})
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         include:
-          - mysql: "8.0"
-            mysql_prepared_statements: "1"
-          - mysql: "8.4"
-            mysql_prepared_statements: "1"
-          - mysql: "latest"
-            mysql_prepared_statements: "0"
-          - mysql: "latest"
-            mysql_prepared_statements: "1"
+          - { mysql: "8.0", mysql_prepared_statements: "1", ruby: "3.4" }
+          - { mysql: "8.4", mysql_prepared_statements: "1", ruby: "3.4" }
+          - { mysql: "latest", mysql_prepared_statements: "1", ruby: "3.4" }
+          - { mysql: "latest", mysql_prepared_statements: "0", ruby: "4.0" }
+          - { mysql: "latest", mysql_prepared_statements: "1", ruby: "4.0" }
     services:
       mysql:
         image: mysql:${{ matrix.mysql }}
@@ -105,17 +112,21 @@ jobs:
       - uses: actions/checkout@v4
       - uses: ruby/setup-ruby@v1
         with:
-          ruby-version: "3.4"
+          ruby-version: ${{ matrix.ruby }}
           bundler-cache: true
       - run: bundle exec rake test:mysql2
       - run: bundle exec rake test:trilogy
 
   mariadb:
-    name: mariadb:${{ matrix.mariadb }}
+    name: mariadb:${{ matrix.mariadb }} (ruby ${{ matrix.ruby }})
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        mariadb: ["11", "latest"]
+        include:
+          - { mariadb: "11", ruby: "3.4" }
+          - { mariadb: "latest", ruby: "3.4" }
+          - { mariadb: "latest", ruby: "4.0" }
     services:
       mariadb:
         image: mariadb:${{ matrix.mariadb }}
@@ -137,7 +148,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: ruby/setup-ruby@v1
         with:
-          ruby-version: "3.4"
+          ruby-version: ${{ matrix.ruby }}
           bundler-cache: true
       - run: bundle exec rake test:mysql2
       - run: bundle exec rake test:trilogy
