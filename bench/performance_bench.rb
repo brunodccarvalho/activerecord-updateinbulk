@@ -14,7 +14,7 @@ BenchHelper.section("Single-column update")
 ROW_COUNTS.each do |n|
   BenchHelper.seed_books(n * TABLE_FACTOR)
   ids = Book.pluck(:id).shuffle.take(n)
-  updates = ids.each_with_object({}) { |id, h| h[id] = { name: "Updated #{id}" } }
+  updates = ids.index_with { |id| { name: "Updated #{id}" } }
 
   BenchHelper.subsection("#{n} rows")
   result = BenchHelper.run_profile("update_in_bulk(#{n})") do
@@ -28,8 +28,8 @@ BenchHelper.section("Multi-column update")
 ROW_COUNTS.each do |n|
   BenchHelper.seed_books(n * TABLE_FACTOR)
   ids = Book.pluck(:id).shuffle.take(n)
-  updates = ids.each_with_object({}) do |id, h|
-    h[id] = { name: "Updated #{id}", pages: rand(50..500), format: "hardcover" }
+  updates = ids.index_with do |id|
+    { name: "Updated #{id}", pages: rand(50..500), format: "hardcover" }
   end
 
   BenchHelper.subsection("#{n} rows")

@@ -23,5 +23,5 @@ Gem::Specification.new do |spec|
   spec.files = Dir["lib/**/*.rb", "LICENSE", "README.md", ".yardopts"]
   spec.require_paths = ["lib"]
 
-  spec.add_runtime_dependency "activerecord", ">= 8.0"
+  spec.add_runtime_dependency "activerecord", ">= 8.1"
 end

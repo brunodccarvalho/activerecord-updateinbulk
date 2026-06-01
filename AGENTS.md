@@ -125,7 +125,7 @@ These columns are removed from the VALUES table and inlined as literals:
   - Arel: `lib/activerecord-updateinbulk/arel/**.rb` - custom `ValuesTable` node
 - Tests: `test/` (minitest)
 
-**Requirements:** Ruby 3.4+, Rails 8+
+**Requirements:** Ruby 3.4+, Rails 8.1+
 
 ## Test Architecture
 
@@ -153,31 +153,14 @@ bin/test-docker postgresql
 bin/test-docker all # Final verification
 
 # Linting
-bundle exec rubocop
-bundle exec rubocop --autocorrect
+bundle exec rubocop -a
 
 # Run a command against the test database with all fixtures loaded. Useful for debugging
 bin/console -e "Book.first.id"
-
-# Benchmarking
-bundle exec ruby bench/performance_bench.rb | rg "i/s|rows"
 ```
 
 ## How to work in this repo
-- Prefer minimal, surgical changes.
-- Avoid rewriting large sections unless asked.
-- Avoid duplicating large blocks of code. Prefer proactively factoring out the duplicated code.
-- Prefer writing optimized code that avoids instantiating too many objects and arrays.
-- Freely add new models and fixtures for new tests, but only if the tests cannot easily be implemented with existing models and fixtures.
 - Keep changes database-agnostic (sqlite3/postgresql/mysql/mariadb) unless the task is database-specific.
-- Update or add tests when changing query behavior.
-- Always lint and test the code after performing non-trivial changes.
-- Do not add new runtime or development dependencies without first asking.
-- Follow rails code style lightly: prefer double quotes for strings.
-- Keep Ruby 3.4 / Rails 8 compatibility in mind.
-
-## When making plans
-- The plan structure should include a list of actionable items.
-- The plan should provide context about the problem it is trying to solve.
-- The plan should also provide context about how the solution works to solve the problem.
-- The plan should elaborate on tests to be added that confirm the solution works as thoroughly as possible.
+- Do not add new runtime or development dependencies.
+- Follow rails code style lightly, even outside `lib/`: prefer double quotes for strings for example.
+- Keep Ruby 3.4 / Rails 8.1 compatibility in mind.

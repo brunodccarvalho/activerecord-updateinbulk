@@ -14,7 +14,7 @@ BenchHelper.section("update_in_bulk vs individual updates vs update_all(constant
 COMPARISON_ROW_COUNTS.each do |n|
   BenchHelper.seed_books(n * TABLE_FACTOR)
   ids = Book.pluck(:id).shuffle.take(n)
-  updates = ids.each_with_object({}) { |id, h| h[id] = { name: "Updated #{id}" } }
+  updates = ids.index_with { |id| { name: "Updated #{id}" } }
 
   BenchHelper.subsection("#{n} rows")
   results = []

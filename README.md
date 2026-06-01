@@ -8,7 +8,7 @@ This construct is available on the latest versions of all databases supported by
 
 Similar to `update_all`, it returns the number of affected rows, and bumps update timestamps by default.
 
-Tested on Ruby 3.4 and Rails 8 for all builtin databases on latest versions.
+Tested on Ruby 3.4 and Rails 8.1 for all builtin databases on latest versions.
 
 ## Usage
 

@@ -4,6 +4,13 @@ source "https://rubygems.org"
 
 gemspec
 
+case ENV["RAILS_VERSION"]
+when "main"
+  gem "rails", github: "rails/rails", branch: "main"
+when String
+  gem "rails", "~> #{ENV.fetch("RAILS_VERSION")}"
+end
+
 group :development, :test do
   gem "rubocop"
   gem "rubocop-minitest"
